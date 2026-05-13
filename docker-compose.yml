@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: weekreport
+      POSTGRES_PASSWORD: weekreport
+      POSTGRES_DB: weekreport
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weekreport -d weekreport"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://weekreport:weekreport@postgres:5432/weekreport
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-change-me
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-scj8iD_Af6Nf9T88DiKphNKhtc_9iZFpsV5i63OPhg0=}
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["alembic upgrade head && exec celery -A app.celery_app worker -l INFO"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://weekreport:weekreport@postgres:5432/weekreport
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-change-me
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-scj8iD_Af6Nf9T88DiKphNKhtc_9iZFpsV5i63OPhg0=}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
