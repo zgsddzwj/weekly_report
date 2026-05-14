@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "week-report.fullname" . }}-worker
+  labels:
+    {{- include "week-report.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "week-report.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "week-report.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      imagePullSecrets:
+        {{- toYaml .Values.imagePullSecrets | nindent 8 }}
+      containers:
+        - name: worker
+          image: "{{ .Values.image.api.repository }}:{{ .Values.image.api.tag }}"
+          imagePullPolicy: {{ .Values.image.api.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - "alembic upgrade head && exec celery -A app.celery_app worker -l INFO"
+          envFrom:
+            - secretRef:
+                name: {{ include "week-report.fullname" . }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
