@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api, setToken } from "../api";
 
@@ -9,6 +9,26 @@ export default function Login() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [oidcAvailable, setOidcAvailable] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/v1/health/ready")
+      .then((r) => r.json())
+      .then((d) => {
+        setOidcAvailable(Boolean(d?.features?.allow_public_oauth));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    const m = hash.match(/token=([^&]+)/);
+    if (m && m[1]) {
+      setToken(decodeURIComponent(m[1]));
+      window.location.hash = "";
+      nav("/");
+    }
+  }, [nav]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -75,6 +95,16 @@ export default function Login() {
             {loading ? "提交中…" : mode === "register" ? "注册并登录" : "登录"}
           </button>
         </form>
+        {oidcAvailable ? (
+          <>
+            <div style={{ textAlign: "center", margin: "0.75rem 0", color: "#94a3b8" }}>— 或 —</div>
+            <a href="/api/v1/auth/oidc/login" style={{ display: "block", textAlign: "center" }}>
+              <button type="button" className="secondary" style={{ width: "100%" }}>
+                使用 OIDC 登录
+              </button>
+            </a>
+          </>
+        ) : null}
       </div>
       <p style={{ marginTop: "1.5rem" }}>
         <Link to="/">返回首页</Link>（未登录会回到本页）

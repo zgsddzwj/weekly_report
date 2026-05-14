@@ -19,6 +19,11 @@ type ReportProfile = {
   filters: Record<string, unknown>;
   style: Record<string, unknown>;
   created_at: string;
+  schedule_cron: string | null;
+  schedule_enabled: boolean;
+  schedule_timezone: string;
+  include_prs: boolean;
+  hook_public_token: string;
 };
 
 type ReportRun = {
@@ -29,6 +34,7 @@ type ReportRun = {
   error_message: string | null;
   created_at: string;
   finished_at: string | null;
+  trigger_source: string;
 };
 
 type TemplatePreset = {
@@ -58,6 +64,11 @@ export default function Dashboard() {
   const [pIgnoreBots, setPIgnoreBots] = useState(true);
   const [pHideMerge, setPHideMerge] = useState(false);
   const [pHideSkipCi, setPHideSkipCi] = useState(false);
+  const [pIncludePrs, setPIncludePrs] = useState(false);
+  const [pScheduleEnabled, setPScheduleEnabled] = useState(false);
+  const [pScheduleCron, setPScheduleCron] = useState("0 9 * * 1");
+  const [pScheduleTimezone, setPScheduleTimezone] = useState("Asia/Shanghai");
+  const [pCustomTemplate, setPCustomTemplate] = useState("");
 
   const [presets, setPresets] = useState<TemplatePreset[]>([]);
   const [eProfileId, setEProfileId] = useState<number | "">("");
@@ -69,6 +80,11 @@ export default function Dashboard() {
   const [eIgnoreBots, setEIgnoreBots] = useState(true);
   const [eHideMerge, setEHideMerge] = useState(false);
   const [eHideSkipCi, setEHideSkipCi] = useState(false);
+  const [eIncludePrs, setEIncludePrs] = useState(false);
+  const [eScheduleEnabled, setEScheduleEnabled] = useState(false);
+  const [eScheduleCron, setEScheduleCron] = useState("0 9 * * 1");
+  const [eScheduleTimezone, setEScheduleTimezone] = useState("Asia/Shanghai");
+  const [eCustomTemplate, setECustomTemplate] = useState("");
 
   const [genProfileId, setGenProfileId] = useState<number | "">("");
   const [activeRun, setActiveRun] = useState<ReportRun | null>(null);
@@ -142,6 +158,10 @@ export default function Dashboard() {
     e.preventDefault();
     if (pConn === "") return;
     setErr(null);
+    const style: Record<string, unknown> = { language: "zh", template_preset: pTemplatePreset };
+    if (pCustomTemplate.trim()) {
+      style.markdown_template = pCustomTemplate.trim();
+    }
     try {
       await api<ReportProfile>("/report-profiles", {
         method: "POST",
@@ -155,7 +175,11 @@ export default function Dashboard() {
             hide_merge_commits: pHideMerge,
             hide_skip_ci_commits: pHideSkipCi,
           },
-          style: { language: "zh", template_preset: pTemplatePreset },
+          style,
+          schedule_cron: pScheduleEnabled ? pScheduleCron : null,
+          schedule_enabled: pScheduleEnabled,
+          schedule_timezone: pScheduleTimezone,
+          include_prs: pIncludePrs,
         }),
       });
       await refresh();
@@ -180,6 +204,11 @@ export default function Dashboard() {
       const st = prof.style || {};
       const pid = typeof st.template_preset === "string" ? st.template_preset : "default";
       setETemplatePreset(["default", "compact", "formal_zh"].includes(pid) ? pid : "default");
+      setEIncludePrs(prof.include_prs);
+      setEScheduleEnabled(prof.schedule_enabled);
+      setEScheduleCron(prof.schedule_cron || "0 9 * * 1");
+      setEScheduleTimezone(prof.schedule_timezone || "UTC");
+      setECustomTemplate(typeof st.markdown_template === "string" ? st.markdown_template : "");
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "加载档案失败");
     }
@@ -189,6 +218,10 @@ export default function Dashboard() {
     e.preventDefault();
     if (eProfileId === "" || eConn === "") return;
     setErr(null);
+    const style: Record<string, unknown> = { template_preset: eTemplatePreset, language: "zh" };
+    if (eCustomTemplate.trim()) {
+      style.markdown_template = eCustomTemplate.trim();
+    }
     try {
       await api<ReportProfile>(`/report-profiles/${eProfileId}`, {
         method: "PATCH",
@@ -202,7 +235,11 @@ export default function Dashboard() {
             hide_merge_commits: eHideMerge,
             hide_skip_ci_commits: eHideSkipCi,
           },
-          style: { template_preset: eTemplatePreset, language: "zh" },
+          style,
+          schedule_cron: eScheduleEnabled ? eScheduleCron : null,
+          schedule_enabled: eScheduleEnabled,
+          schedule_timezone: eScheduleTimezone,
+          include_prs: eIncludePrs,
         }),
       });
       await refresh();
@@ -327,7 +364,33 @@ export default function Dashboard() {
               <input type="checkbox" checked={pHideSkipCi} onChange={(e) => setPHideSkipCi(e.target.checked)} />
               隐藏含 [skip ci] / [ci skip] 的提交
             </label>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={pIncludePrs} onChange={(e) => setPIncludePrs(e.target.checked)} />
+              包含合并的 PR（仅 GitHub）
+            </label>
           </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", borderTop: "1px solid #e2e8f0", paddingTop: "0.5rem" }}>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={pScheduleEnabled} onChange={(e) => setPScheduleEnabled(e.target.checked)} />
+              启用定时生成（Celery Beat）
+            </label>
+            {pScheduleEnabled ? (
+              <>
+                <label>
+                  Cron 表达式
+                  <input value={pScheduleCron} onChange={(e) => setPScheduleCron(e.target.value)} placeholder="0 9 * * 1" style={{ width: "10rem" }} />
+                </label>
+                <label>
+                  时区
+                  <input value={pScheduleTimezone} onChange={(e) => setPScheduleTimezone(e.target.value)} placeholder="Asia/Shanghai" style={{ width: "10rem" }} />
+                </label>
+              </>
+            ) : null}
+          </div>
+          <label style={{ flex: 1, minWidth: "18rem" }}>
+            自定义 Markdown 模板（留空使用内置模板；Jinja2 语法）
+            <textarea rows={4} value={pCustomTemplate} onChange={(e) => setPCustomTemplate(e.target.value)} placeholder="可选：覆盖内置模板" />
+          </label>
           <button type="submit" disabled={!connections.length}>
             保存档案
           </button>
@@ -413,11 +476,45 @@ export default function Dashboard() {
               <input type="checkbox" checked={eHideSkipCi} onChange={(e) => setEHideSkipCi(e.target.checked)} />
               隐藏含 [skip ci] / [ci skip] 的提交
             </label>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={eIncludePrs} onChange={(e) => setEIncludePrs(e.target.checked)} />
+              包含合并的 PR（仅 GitHub）
+            </label>
           </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center", borderTop: "1px solid #e2e8f0", paddingTop: "0.5rem" }}>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={eScheduleEnabled} onChange={(e) => setEScheduleEnabled(e.target.checked)} />
+              启用定时生成（Celery Beat）
+            </label>
+            {eScheduleEnabled ? (
+              <>
+                <label>
+                  Cron 表达式
+                  <input value={eScheduleCron} onChange={(e) => setEScheduleCron(e.target.value)} placeholder="0 9 * * 1" style={{ width: "10rem" }} />
+                </label>
+                <label>
+                  时区
+                  <input value={eScheduleTimezone} onChange={(e) => setEScheduleTimezone(e.target.value)} placeholder="Asia/Shanghai" style={{ width: "10rem" }} />
+                </label>
+              </>
+            ) : null}
+          </div>
+          <label style={{ flex: 1, minWidth: "18rem" }}>
+            自定义 Markdown 模板（留空使用内置模板；Jinja2 语法）
+            <textarea rows={4} value={eCustomTemplate} onChange={(e) => setECustomTemplate(e.target.value)} placeholder="可选：覆盖内置模板" />
+          </label>
           <button type="submit" disabled={eProfileId === "" || !connections.length}>
             保存修改
           </button>
         </form>
+        {eProfileId !== "" ? (
+          <div style={{ marginTop: "0.75rem", paddingTop: "0.75rem", borderTop: "1px solid #e2e8f0", fontSize: "0.85rem", color: "#64748b" }}>
+            <div>Webhook 地址（外部触发）:</div>
+            <code style={{ wordBreak: "break-all" }}>
+              {`${window.location.origin}/api/v1/public/hooks/report-profiles/${profiles.find((p) => p.id === eProfileId)?.hook_public_token || "…"}/runs`}
+            </code>
+          </div>
+        ) : null}
       </section>
 
       <section className="card">
@@ -464,6 +561,7 @@ export default function Dashboard() {
               <th style={{ padding: "0.35rem" }}>ID</th>
               <th>档案</th>
               <th>状态</th>
+              <th>触发方式</th>
               <th>创建时间</th>
             </tr>
           </thead>
@@ -473,6 +571,7 @@ export default function Dashboard() {
                 <td style={{ padding: "0.35rem" }}>{r.id}</td>
                 <td>{r.profile_id}</td>
                 <td>{r.status}</td>
+                <td>{r.trigger_source}</td>
                 <td>{r.created_at}</td>
               </tr>
             ))}
