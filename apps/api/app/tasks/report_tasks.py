@@ -114,7 +114,7 @@ def generate_report(run_id: int) -> None:
             entity_id=run.id,
             meta={"status": "success", "storage": storage},
         )
-        log.info("report.finished", run_id=run.id, storage=storage)
+        log.info("report.finished", extra={"run_id": run.id, "storage": storage})
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         run = db.query(ReportRun).filter(ReportRun.id == run_id).first()
@@ -130,6 +130,6 @@ def generate_report(run_id: int) -> None:
                 entity_id=run.id,
                 meta={"status": "failed", "error": run.error_message[:500] if run.error_message else ""},
             )
-        log.exception("report.failed", run_id=run_id)
+        log.exception("report.failed", extra={"run_id": run_id})
     finally:
         db.close()
