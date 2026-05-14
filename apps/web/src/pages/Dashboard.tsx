@@ -97,6 +97,13 @@ export default function Dashboard() {
   const [activeRun, setActiveRun] = useState<ReportRun | null>(null);
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<number | "">("");
+  const [showGuide, setShowGuide] = useState(() => {
+    try {
+      return localStorage.getItem("wr_guide_closed") !== "1";
+    } catch {
+      return true;
+    }
+  });
 
   const refresh = useCallback(async () => {
     setErr(null);
@@ -372,6 +379,66 @@ export default function Dashboard() {
         </div>
       </header>
       {err ? <p className="err">{err}</p> : null}
+
+      {showGuide ? (
+        <section className="card" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>📖 新手指南</h2>
+            <button
+              type="button"
+              className="secondary"
+              style={{ fontSize: "0.8rem", padding: "0.25rem 0.6rem" }}
+              onClick={() => {
+                setShowGuide(false);
+                try {
+                  localStorage.setItem("wr_guide_closed", "1");
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              关闭引导
+            </button>
+          </div>
+          <ol style={{ paddingLeft: "1.25rem", margin: "0.75rem 0 0", color: "#334155", lineHeight: 1.7 }}>
+            <li>
+              <strong>添加 Git 连接</strong>：在下方「新建 Git 连接」填入你的平台（GitHub/GitLab/Gitee）和
+              <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>
+                Personal Access Token
+              </a>
+              （需读取仓库权限）。GitHub 用户建议使用 Fine-grained PAT。
+            </li>
+            <li>
+              <strong>创建周报档案</strong>：在「新建周报档案」选择刚添加的连接，填写仓库列表（格式
+              <code>owner/repo</code>，多个用逗号或换行分隔），选择模板与过滤规则。
+            </li>
+            <li>
+              <strong>一键生成周报</strong>：在「生成周报」选择档案，点击「一键生成」。Worker 会自动拉取时间窗内的提交并渲染为 Markdown。
+            </li>
+            <li>
+              <strong>查看与扩展</strong>：结果支持实时预览、下载 .md。进阶功能包括定时任务（Celery Beat）、Webhook 外部触发、PR 数据汇总、自定义 Jinja2 模板等。
+            </li>
+          </ol>
+        </section>
+      ) : (
+        <div style={{ textAlign: "right", marginBottom: "0.5rem" }}>
+          <button
+            type="button"
+            className="secondary"
+            style={{ fontSize: "0.8rem", padding: "0.25rem 0.6rem" }}
+            onClick={() => {
+              setShowGuide(true);
+              try {
+                localStorage.removeItem("wr_guide_closed");
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            📖 显示新手指南
+          </button>
+        </div>
+      )}
 
       <section className="card">
         <h2>新建 Git 连接</h2>
