@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, setToken } from "../api";
+import { api, setToken, sseLines } from "../api";
 
 type GitConnection = {
   id: number;
@@ -121,17 +121,56 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!activeRun || activeRun.status === "success" || activeRun.status === "failed") return;
-    const t = window.setInterval(() => {
-      api<ReportRun>(`/reports/${activeRun.id}`)
-        .then((rr) => {
-          setActiveRun(rr);
-          if (rr.status === "success" || rr.status === "failed") {
-            void refresh();
+    const runId = activeRun.id;
+    let cancelled = false;
+    async function listen() {
+      try {
+        for await (const line of sseLines(`/reports/${runId}/events`)) {
+          if (cancelled) break;
+          try {
+            const payload = JSON.parse(line) as { status: string; result_markdown?: string; error_message?: string };
+            if (payload.status === "success") {
+              setActiveRun((prev) =>
+                prev && prev.id === runId
+                  ? { ...prev, status: "success", result_markdown: payload.result_markdown ?? prev.result_markdown }
+                  : prev
+              );
+              void refresh();
+              break;
+            } else if (payload.status === "failed") {
+              setActiveRun((prev) =>
+                prev && prev.id === runId
+                  ? { ...prev, status: "failed", error_message: payload.error_message ?? prev.error_message }
+                  : prev
+              );
+              void refresh();
+              break;
+            } else {
+              setActiveRun((prev) => (prev && prev.id === runId ? { ...prev, status: payload.status } : prev));
+            }
+          } catch {
+            /* ignore malformed line */
           }
-        })
-        .catch(() => {});
-    }, 1500);
-    return () => window.clearInterval(t);
+        }
+      } catch {
+        /* fallback to polling if SSE fails */
+        const t = window.setInterval(() => {
+          api<ReportRun>(`/reports/${runId}`)
+            .then((rr) => {
+              setActiveRun(rr);
+              if (rr.status === "success" || rr.status === "failed") {
+                void refresh();
+              }
+            })
+            .catch(() => {});
+        }, 2000);
+        return () => window.clearInterval(t);
+      }
+    }
+    void listen();
+    return () => {
+      cancelled = true;
+    };
   }, [activeRun, refresh]);
 
   async function addConnection(e: FormEvent) {
