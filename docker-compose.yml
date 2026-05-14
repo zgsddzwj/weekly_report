@@ -47,7 +47,7 @@ services:
       context: ./apps/api
       dockerfile: Dockerfile
     entrypoint: ["/bin/sh", "-c"]
-    command: ["alembic upgrade head && exec celery -A app.celery_app worker -l INFO"]
+    command: ["exec celery -A app.celery_app worker -l INFO"]
     environment:
       DATABASE_URL: postgresql+psycopg://weekreport:weekreport@postgres:5432/weekreport
       REDIS_URL: redis://redis:6379/0
@@ -58,6 +58,8 @@ services:
       FEATURE_EXTERNAL_TELEMETRY: "false"
       ALLOW_PUBLIC_OAUTH: "true"
     depends_on:
+      api:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:
@@ -68,7 +70,7 @@ services:
       context: ./apps/api
       dockerfile: Dockerfile
     entrypoint: ["/bin/sh", "-c"]
-    command: ["alembic upgrade head && exec celery -A app.celery_app beat -l INFO"]
+    command: ["exec celery -A app.celery_app beat -l INFO"]
     environment:
       DATABASE_URL: postgresql+psycopg://weekreport:weekreport@postgres:5432/weekreport
       REDIS_URL: redis://redis:6379/0
@@ -78,6 +80,8 @@ services:
       FEATURE_EXTERNAL_TELEMETRY: "false"
       ALLOW_PUBLIC_OAUTH: "true"
     depends_on:
+      api:
+        condition: service_started
       postgres:
         condition: service_healthy
       redis:
