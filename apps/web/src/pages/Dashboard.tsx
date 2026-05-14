@@ -308,6 +308,18 @@ export default function Dashboard() {
     nav("/login");
   }
 
+  function downloadMarkdown(content: string, filename: string) {
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "1.25rem" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -584,7 +596,16 @@ export default function Dashboard() {
               任务 #{activeRun.id} 状态：<strong>{activeRun.status}</strong>
             </p>
             {activeRun.error_message ? <p className="err">{activeRun.error_message}</p> : null}
-            {activeRun.result_markdown ? <pre className="md">{activeRun.result_markdown}</pre> : null}
+            {activeRun.result_markdown ? (
+              <>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <button type="button" className="secondary" onClick={() => downloadMarkdown(activeRun.result_markdown!, `report-${activeRun.id}.md`)}>
+                    下载 .md
+                  </button>
+                </div>
+                <pre className="md">{activeRun.result_markdown}</pre>
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -602,6 +623,7 @@ export default function Dashboard() {
               <th>状态</th>
               <th>触发方式</th>
               <th>创建时间</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -612,6 +634,13 @@ export default function Dashboard() {
                 <td>{r.status}</td>
                 <td>{r.trigger_source}</td>
                 <td>{r.created_at}</td>
+                <td>
+                  {r.status === "success" && r.result_markdown ? (
+                    <button type="button" className="secondary" style={{ fontSize: "0.8rem", padding: "0.2rem 0.5rem" }} onClick={() => downloadMarkdown(r.result_markdown!, `report-${r.id}.md`)}>
+                      下载
+                    </button>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>
