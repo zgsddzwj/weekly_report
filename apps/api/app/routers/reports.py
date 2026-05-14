@@ -1,12 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import CurrentUser
 from app.models import ReportProfile, ReportRun
+from app.request_util import client_ip
 from app.schemas import ReportRunCreate, ReportRunOut
+from app.services.audit import record_audit_event
 from app.tasks.report_tasks import generate_report
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -29,6 +31,7 @@ def list_reports(
 
 @router.post("", response_model=ReportRunOut, status_code=status.HTTP_202_ACCEPTED)
 def enqueue_report(
+    request: Request,
     payload: ReportRunCreate,
     db: Annotated[Session, Depends(get_db)],
     user: CurrentUser,
@@ -50,6 +53,14 @@ def enqueue_report(
     run.celery_task_id = async_result.id
     db.commit()
     db.refresh(run)
+    record_audit_event(
+        action="report_run.enqueued",
+        user_id=user.id,
+        entity_type="report_run",
+        entity_id=run.id,
+        meta={"profile_id": profile.id, "celery_task_id": async_result.id},
+        client_ip=client_ip(request),
+    )
     return run
 
 

@@ -1,12 +1,14 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import CurrentUser
 from app.models import GitConnection, ReportProfile
+from app.request_util import client_ip
 from app.schemas import ReportProfileCreate, ReportProfileOut, ReportProfileUpdate, TemplatePresetOut
+from app.services.audit import record_audit_event
 from app.template_presets import BUILTIN_TEMPLATE_BY_PRESET, TEMPLATE_PRESET_CATALOG
 
 router = APIRouter(prefix="/report-profiles", tags=["profiles"])
@@ -59,6 +61,7 @@ def list_profiles(
 
 @router.post("", response_model=ReportProfileOut)
 def create_profile(
+    request: Request,
     payload: ReportProfileCreate,
     db: Annotated[Session, Depends(get_db)],
     user: CurrentUser,
@@ -78,10 +81,15 @@ def create_profile(
     db.add(row)
     db.commit()
     db.refresh(row)
+    record_audit_event(
+        action="report_profile.created",
+        user_id=user.id,
+        entity_type="report_profile",
+        entity_id=row.id,
+        meta={"name": row.name},
+        client_ip=client_ip(request),
+    )
     return row
-
-
-@router.get("/template-presets", response_model=list[TemplatePresetOut])
 def list_template_presets(_user: CurrentUser) -> list[dict[str, str]]:
     """Must be registered before `/{profile_id}` so the path is not parsed as an integer id."""
     return TEMPLATE_PRESET_CATALOG
@@ -89,6 +97,7 @@ def list_template_presets(_user: CurrentUser) -> list[dict[str, str]]:
 
 @router.patch("/{profile_id}", response_model=ReportProfileOut)
 def patch_profile(
+    request: Request,
     profile_id: int,
     payload: ReportProfileUpdate,
     db: Annotated[Session, Depends(get_db)],
@@ -127,6 +136,13 @@ def patch_profile(
 
     db.commit()
     db.refresh(row)
+    record_audit_event(
+        action="report_profile.updated",
+        user_id=user.id,
+        entity_type="report_profile",
+        entity_id=row.id,
+        client_ip=client_ip(request),
+    )
     return row
 
 
@@ -148,6 +164,7 @@ def get_profile(
 
 @router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_profile(
+    request: Request,
     profile_id: int,
     db: Annotated[Session, Depends(get_db)],
     user: CurrentUser,
@@ -161,3 +178,10 @@ def delete_profile(
         raise HTTPException(status_code=404, detail="Not found")
     db.delete(row)
     db.commit()
+    record_audit_event(
+        action="report_profile.deleted",
+        user_id=user.id,
+        entity_type="report_profile",
+        entity_id=profile_id,
+        client_ip=client_ip(request),
+    )

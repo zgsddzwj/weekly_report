@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import auth, git_connections, health, profiles, reports
+from app.routers import audit, auth, git_connections, health, profiles, reports
 
 settings = get_settings()
 
@@ -19,6 +19,7 @@ app.add_middleware(
 api_prefix = "/api/v1"
 
 app.include_router(health.router, prefix=api_prefix)
+app.include_router(audit.router, prefix=api_prefix)
 app.include_router(auth.router, prefix=api_prefix)
 app.include_router(git_connections.router, prefix=api_prefix)
 app.include_router(profiles.router, prefix=api_prefix)

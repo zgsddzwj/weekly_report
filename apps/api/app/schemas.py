@@ -76,6 +76,18 @@ class TemplatePresetOut(BaseModel):
     description_zh: str
 
 
+class AuditEventOut(BaseModel):
+    id: int
+    action: str
+    entity_type: str | None
+    entity_id: int | None
+    meta: dict[str, Any]
+    client_ip: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class ReportRunCreate(BaseModel):
     profile_id: int
 
