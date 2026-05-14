@@ -21,8 +21,15 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrganizationMemberOut(BaseModel):
+    id: int
+    name: str
+    slug: str
+    role: str
+
+
 class GitConnectionCreate(BaseModel):
-    provider: str = Field(pattern="^(github|gitlab)$")
+    provider: str = Field(pattern="^(github|gitlab|gitee)$")
     base_url: str
     label: str = Field(max_length=128)
     token: str = Field(min_length=8)
@@ -30,6 +37,7 @@ class GitConnectionCreate(BaseModel):
 
 class GitConnectionOut(BaseModel):
     id: int
+    organization_id: int
     provider: str
     base_url: str
     label: str
@@ -45,10 +53,16 @@ class ReportProfileCreate(BaseModel):
     window_days: int = Field(default=7, ge=1, le=90)
     filters: dict[str, Any] = Field(default_factory=dict)
     style: dict[str, Any] = Field(default_factory=dict)
+    schedule_cron: str | None = None
+    schedule_enabled: bool = False
+    schedule_timezone: str = "UTC"
+    include_prs: bool = False
+    diff_analysis_consent: bool = False
 
 
 class ReportProfileOut(BaseModel):
     id: int
+    organization_id: int
     name: str
     git_connection_id: int
     repo_full_names: str
@@ -56,6 +70,12 @@ class ReportProfileOut(BaseModel):
     filters: dict[str, Any]
     style: dict[str, Any]
     created_at: datetime
+    schedule_cron: str | None
+    schedule_enabled: bool
+    schedule_timezone: str
+    hook_public_token: str
+    include_prs: bool
+    diff_analysis_consent: bool
 
     model_config = {"from_attributes": True}
 
@@ -67,6 +87,11 @@ class ReportProfileUpdate(BaseModel):
     window_days: int | None = Field(None, ge=1, le=90)
     filters: dict[str, Any] | None = None
     style: dict[str, Any] | None = None
+    schedule_cron: str | None = None
+    schedule_enabled: bool | None = None
+    schedule_timezone: str | None = None
+    include_prs: bool | None = None
+    diff_analysis_consent: bool | None = None
 
 
 class TemplatePresetOut(BaseModel):
@@ -90,6 +115,7 @@ class AuditEventOut(BaseModel):
 
 class ReportRunCreate(BaseModel):
     profile_id: int
+    trigger_source: str = Field(default="manual", pattern="^(manual|api)$")
 
 
 class ReportRunOut(BaseModel):
@@ -100,5 +126,10 @@ class ReportRunOut(BaseModel):
     error_message: str | None
     created_at: datetime
     finished_at: datetime | None
+    profile_snapshot: dict[str, Any]
+    trigger_source: str
+    result_storage: str
+    result_s3_bucket: str | None
+    result_s3_key: str | None
 
     model_config = {"from_attributes": True}

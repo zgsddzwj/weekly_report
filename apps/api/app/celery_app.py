@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from celery import Celery
 
 from app.config import get_settings
@@ -8,7 +10,7 @@ celery_app = Celery(
     "weekreport",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.report_tasks"],
+    include=["app.tasks.report_tasks", "app.tasks.schedule_tasks"],
 )
 
 celery_app.conf.update(
@@ -17,4 +19,10 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
+    beat_schedule={
+        "tick-scheduled-reports": {
+            "task": "reports.schedule_tick",
+            "schedule": timedelta(seconds=60),
+        },
+    },
 )

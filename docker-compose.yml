@@ -53,6 +53,27 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev-secret-change-me
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-scj8iD_Af6Nf9T88DiKphNKhtc_9iZFpsV5i63OPhg0=}
+      CORS_ORIGINS: http://localhost:8080,http://localhost:5173
+      FEATURE_LLM: "false"
+      FEATURE_EXTERNAL_TELEMETRY: "false"
+      ALLOW_PUBLIC_OAUTH: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["alembic upgrade head && exec celery -A app.celery_app beat -l INFO"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://weekreport:weekreport@postgres:5432/weekreport
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-change-me
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-scj8iD_Af6Nf9T88DiKphNKhtc_9iZFpsV5i63OPhg0=}
       FEATURE_LLM: "false"
       FEATURE_EXTERNAL_TELEMETRY: "false"
       ALLOW_PUBLIC_OAUTH: "true"

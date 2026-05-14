@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import re
 from typing import Any
 
 from jinja2 import Template
@@ -12,6 +13,7 @@ def render_report_markdown(
     window_days: int,
     repos: list[str],
     style: dict[str, Any],
+    prs: list[dict[str, Any]] | None = None,
 ) -> str:
     language = style.get("language", "zh")
     tone = style.get("tone", "neutral")
@@ -29,13 +31,33 @@ def render_report_markdown(
     window_start = (now - timedelta(days=window_days)).strftime("%Y-%m-%d")
     body_tpl = resolve_markdown_template_string(style)
     tpl = Template(body_tpl)
-    return tpl.render(
+    md = tpl.render(
         title=title,
         window_start=window_start,
         window_end=window_end,
         window_days=window_days,
         repo_list=", ".join(repos),
         commits=commits,
+        prs=prs or [],
         footer=footer,
         profile_name=profile_name,
     )
+    return _apply_desensitize(md, style)
+
+
+def _apply_desensitize(markdown: str, style: dict[str, Any]) -> str:
+    rules = style.get("desensitize_rules")
+    if not isinstance(rules, list):
+        return markdown
+    out = markdown
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        pat = rule.get("pattern")
+        repl = rule.get("replacement", "***")
+        if isinstance(pat, str) and pat:
+            try:
+                out = re.sub(pat, str(repl), out)
+            except re.error:
+                continue
+    return out

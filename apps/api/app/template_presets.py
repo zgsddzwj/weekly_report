@@ -16,6 +16,13 @@ COMPACT_TEMPLATE = """# {{ title }}
 所选时间窗内无匹配提交。
 {% endif %}
 
+{% if prs %}
+## 合并的 PR
+{% for p in prs -%}
+- `{{ p.repo }}` [{{ p.title | e }}]({{ p.url }}) — {{ p.author | e }} · {{ p.date }}
+{% endfor %}
+{% endif %}
+
 {{ footer }}
 """
 
@@ -34,6 +41,16 @@ FORMAL_ZH_TEMPLATE = """# {{ title }}
 {% endfor %}
 {% else %}
 本期时间窗内未检索到符合条件的提交（请核对 Token 权限与仓库名 `owner/repo` 格式）。
+{% endif %}
+
+{% if prs %}
+## 合并的 PR（GitHub）
+
+| 仓库 | 标题 | 作者 | 合并时间 | 链接 |
+|------|------|------|----------|------|
+{% for p in prs -%}
+| `{{ p.repo }}` | {{ p.title | e }} | {{ p.author | e }} | {{ p.date }} | [link]({{ p.url }}) |
+{% endfor %}
 {% endif %}
 
 ## 二、说明与核对
@@ -56,6 +73,16 @@ DEFAULT_TABLE_TEMPLATE = """# {{ title }}
 {% endfor %}
 {% else %}
 本周所选时间窗内无匹配提交（或 Token 权限不足 / 仓库名格式应为 `owner/repo`）。
+{% endif %}
+
+{% if prs %}
+## 合并的 PR（GitHub）
+
+| 仓库 | 标题 | 作者 | 合并时间 | 链接 |
+|------|------|------|----------|------|
+{% for p in prs -%}
+| `{{ p.repo }}` | {{ p.title | e }} | {{ p.author | e }} | {{ p.date }} | [link]({{ p.url }}) |
+{% endfor %}
 {% endif %}
 
 ## 备注

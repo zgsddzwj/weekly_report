@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -32,6 +35,30 @@ def _httpx_client() -> httpx.Client:
     return httpx.Client(timeout=60.0, trust_env=True)
 
 
+def _request_with_github_rate_limit(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str],
+    params: dict[str, Any] | None = None,
+    max_retries: int = 8,
+) -> httpx.Response:
+    """Enterprise-friendly backoff on HTTP 429 (architecture §8)."""
+    backoff = 1.0
+    for attempt in range(max_retries):
+        r = client.request(method, url, headers=headers, params=params)
+        if r.status_code == 429:
+            ra = r.headers.get("Retry-After")
+            wait_s = float(ra) if ra and ra.isdigit() else min(backoff, 120.0)
+            time.sleep(wait_s)
+            backoff = min(backoff * 2, 120.0)
+            continue
+        r.raise_for_status()
+        return r
+    raise RuntimeError("GitHub API rate limited after retries")
+
+
 def _message_has_skip_ci_tag(message: str) -> bool:
     m = (message or "").lower()
     return "[skip ci]" in m or "[ci skip]" in m
@@ -62,7 +89,62 @@ def fetch_commits_for_window(
         return _fetch_github(conn.base_url.rstrip("/"), token, repo_full_names, since, filters)
     if conn.provider == "gitlab":
         return _fetch_gitlab(conn.base_url.rstrip("/"), token, repo_full_names, since, filters)
+    if conn.provider == "gitee":
+        return _fetch_gitee(conn.base_url.rstrip("/"), token, repo_full_names, since, filters)
     raise ValueError(f"Unsupported provider: {conn.provider}")
+
+
+def fetch_merged_prs_for_window(
+    conn: GitConnection,
+    token: str,
+    repo_full_names: list[str],
+    window_days: int,
+    filters: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """GitHub merged PRs within the window (architecture §6.1 data sources, phased)."""
+    if conn.provider != "github":
+        return []
+    since = datetime.now(timezone.utc) - timedelta(days=window_days)
+    ignore_bots = bool(filters.get("ignore_bots", True))
+    headers = _github_headers(token)
+    out: list[dict[str, Any]] = []
+    with _httpx_client() as client:
+        for full in repo_full_names:
+            owner, _, name = full.partition("/")
+            if not name:
+                continue
+            url = f"{conn.base_url.rstrip('/')}/repos/{owner}/{name}/pulls"
+            params: dict[str, Any] = {"state": "closed", "sort": "updated", "direction": "desc", "per_page": 50}
+            r = _request_with_github_rate_limit(client, "GET", url, headers=headers, params=params)
+            data = r.json()
+            if not isinstance(data, list):
+                continue
+            for pr in data:
+                merged_at = pr.get("merged_at")
+                if not merged_at:
+                    continue
+                try:
+                    md = datetime.fromisoformat(merged_at.replace("Z", "+00:00"))
+                except ValueError:
+                    continue
+                if md < since:
+                    break
+                user = pr.get("user") or {}
+                login = str(user.get("login") or "")
+                if ignore_bots and login.endswith("[bot]"):
+                    continue
+                out.append(
+                    {
+                        "kind": "pr",
+                        "repo": full,
+                        "title": str(pr.get("title") or ""),
+                        "author": login,
+                        "date": merged_at,
+                        "url": str(pr.get("html_url") or ""),
+                    }
+                )
+    out.sort(key=lambda x: x.get("date") or "", reverse=True)
+    return out
 
 
 def _fetch_github(
@@ -87,8 +169,7 @@ def _fetch_github(
             url: str | None = f"{api_base}/repos/{owner}/{name}/commits"
             params: dict[str, Any] | None = {"since": since_s, "per_page": 100}
             while url:
-                r = client.get(url, headers=headers, params=params)
-                r.raise_for_status()
+                r = _request_with_github_rate_limit(client, "GET", url, headers=headers, params=params)
                 data = r.json()
                 if not isinstance(data, list):
                     break
@@ -110,10 +191,11 @@ def _fetch_github(
                         continue
                     date_s = (commit.get("author") or {}).get("date") or ""
                     link = ""
-                    if api_base.rstrip("/").endswith("api.github.com"):
+                    if "github.com" in api_base:
                         link = f"https://github.com/{full}/commit/{sha}"
                     results.append(
                         {
+                            "kind": "commit",
                             "repo": full,
                             "sha": sha[:7],
                             "full_sha": sha,
@@ -136,6 +218,78 @@ def _next_github_url(link_header: str) -> str | None:
         if 'rel="next"' in part:
             return part.split(";")[0].strip().strip("<>")
     return None
+
+
+def _fetch_gitee(
+    api_base: str,
+    token: str,
+    repos: list[str],
+    since: datetime,
+    filters: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Gitee Open API v5 (architecture §6.1)."""
+    ignore_bots = bool(filters.get("ignore_bots", True))
+    min_insertions = int(filters.get("min_insertions", 0) or 0)
+    hide_merge_commits = bool(filters.get("hide_merge_commits", False))
+    hide_skip_ci_commits = bool(filters.get("hide_skip_ci_commits", False))
+    since_s = since.strftime("%Y-%m-%dT%H:%M:%SZ")
+    results: list[dict[str, Any]] = []
+    with _httpx_client() as client:
+        for full in repos:
+            owner, _, name = full.partition("/")
+            if not name:
+                continue
+            page = 1
+            while True:
+                r = client.get(
+                    f"{api_base}/repos/{owner}/{name}/commits",
+                    params={
+                        "access_token": token,
+                        "since": since_s,
+                        "per_page": 100,
+                        "page": page,
+                    },
+                )
+                r.raise_for_status()
+                data = r.json()
+                if not isinstance(data, list) or not data:
+                    break
+                for c in data:
+                    commit = c.get("commit") or {}
+                    msg = (commit.get("message") or "").split("\n")[0]
+                    author = (commit.get("author") or {}).get("name") or ""
+                    email = (commit.get("author") or {}).get("email") or ""
+                    if ignore_bots and ("[bot]" in (email or "") or str(author).endswith("[bot]")):
+                        continue
+                    sha = c.get("sha") or ""
+                    parents = c.get("parents") if isinstance(c.get("parents"), list) else []
+                    is_merge = len(parents) > 1
+                    if _should_skip_commit(msg, is_merge, hide_merge_commits, hide_skip_ci_commits):
+                        continue
+                    date_s = (commit.get("author") or {}).get("date") or ""
+                    stats = c.get("stats") or {}
+                    add = int(stats.get("additions") or 0) if isinstance(stats, dict) else 0
+                    if min_insertions > 0 and add < min_insertions:
+                        continue
+                    html_url = str(c.get("html_url") or "")
+                    results.append(
+                        {
+                            "kind": "commit",
+                            "repo": full,
+                            "sha": sha[:7] if sha else "",
+                            "full_sha": sha,
+                            "message": msg,
+                            "author": author,
+                            "date": date_s,
+                            "insertions": add,
+                            "url": html_url,
+                        }
+                    )
+                if len(data) < 100:
+                    break
+                page += 1
+    results.sort(key=lambda x: x.get("date") or "", reverse=True)
+    return results
 
 
 def _fetch_gitlab(
@@ -193,6 +347,7 @@ def _fetch_gitlab(
                     web = c.get("web_url") or ""
                     results.append(
                         {
+                            "kind": "commit",
                             "repo": full,
                             "sha": sha[:7] if sha else "",
                             "full_sha": sha,
