@@ -3,6 +3,7 @@ name = "week-report-api"
 version = "0.1.0"
 description = "Week Report API (FastAPI + Celery)"
 requires-python = ">=3.12"
+scripts = { weekreport = "app.cli:main" }
 dependencies = [
     "fastapi==0.115.6",
     "uvicorn[standard]==0.32.1",
