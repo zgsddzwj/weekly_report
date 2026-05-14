@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, setToken, sseLines } from "../api";
+import { api, setOrgId, setToken, sseLines } from "../api";
 
 type GitConnection = {
   id: number;
@@ -42,6 +42,13 @@ type TemplatePreset = {
   label_zh: string;
   label_en: string;
   description_zh: string;
+};
+
+type Organization = {
+  id: number;
+  name: string;
+  slug: string;
+  role: string;
 };
 
 export default function Dashboard() {
@@ -88,16 +95,27 @@ export default function Dashboard() {
 
   const [genProfileId, setGenProfileId] = useState<number | "">("");
   const [activeRun, setActiveRun] = useState<ReportRun | null>(null);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [currentOrgId, setCurrentOrgId] = useState<number | "">("");
 
   const refresh = useCallback(async () => {
     setErr(null);
     try {
-      const [c, p, r, tp] = await Promise.all([
+      const [o, c, p, r, tp] = await Promise.all([
+        api<Organization[]>("/organizations"),
         api<GitConnection[]>("/git-connections"),
         api<ReportProfile[]>("/report-profiles"),
         api<ReportRun[]>("/reports?limit=30"),
         api<TemplatePreset[]>("/report-profiles/template-presets"),
       ]);
+      setOrgs(o);
+      const savedOrg = localStorage.getItem("wr_org_id");
+      const validOrg = o.find((x) => String(x.id) === savedOrg);
+      const targetOrgId: number | undefined = validOrg ? validOrg.id : o[0]?.id;
+      if (targetOrgId !== undefined) {
+        setCurrentOrgId(targetOrgId);
+        setOrgId(String(targetOrgId));
+      }
       setConnections(c);
       setProfiles(p);
       setRuns(r);
@@ -322,11 +340,36 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "1.25rem" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}>
         <h1 style={{ margin: 0 }}>Week Report</h1>
-        <button type="button" className="secondary" onClick={logout}>
-          退出
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          {orgs.length > 1 ? (
+            <label style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.9rem" }}>
+              组织
+              <select
+                value={currentOrgId}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setCurrentOrgId(id);
+                  setOrgId(String(id));
+                  void refresh();
+                }}
+                style={{ fontSize: "0.9rem" }}
+              >
+                {orgs.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name} ({o.role})
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : orgs.length === 1 ? (
+            <span style={{ fontSize: "0.9rem", color: "#64748b" }}>{orgs[0].name}</span>
+          ) : null}
+          <button type="button" className="secondary" onClick={logout}>
+            退出
+          </button>
+        </div>
       </header>
       {err ? <p className="err">{err}</p> : null}
 

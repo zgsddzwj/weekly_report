@@ -9,6 +9,15 @@ export function setToken(token: string | null): void {
   else localStorage.removeItem("wr_token");
 }
 
+export function getOrgId(): string | null {
+  return localStorage.getItem("wr_org_id");
+}
+
+export function setOrgId(id: string | null): void {
+  if (id) localStorage.setItem("wr_org_id", id);
+  else localStorage.removeItem("wr_org_id");
+}
+
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   if (!(options.body instanceof FormData)) {
@@ -16,6 +25,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   }
   const tok = getToken();
   if (tok) headers.set("Authorization", `Bearer ${tok}`);
+  const orgId = getOrgId();
+  if (orgId) headers.set("X-Organization-Id", orgId);
   const res = await fetch(`${prefix}${path}`, { ...options, headers });
   if (!res.ok) {
     let detail = res.statusText;
@@ -39,9 +50,11 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
 
 export async function* sseLines(path: string): AsyncGenerator<string, void, unknown> {
   const tok = getToken();
-  const res = await fetch(`${prefix}${path}`, {
-    headers: { Authorization: tok ? `Bearer ${tok}` : "", Accept: "text/event-stream" },
-  });
+  const orgId = getOrgId();
+  const headers: Record<string, string> = { Accept: "text/event-stream" };
+  if (tok) headers["Authorization"] = `Bearer ${tok}`;
+  if (orgId) headers["X-Organization-Id"] = orgId;
+  const res = await fetch(`${prefix}${path}`, { headers });
   if (!res.ok || !res.body) {
     throw new Error(`SSE failed: ${res.status}`);
   }
