@@ -60,6 +60,22 @@ class ReportProfileOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ReportProfileUpdate(BaseModel):
+    name: str | None = Field(None, max_length=128)
+    git_connection_id: int | None = None
+    repo_full_names: str | None = None
+    window_days: int | None = Field(None, ge=1, le=90)
+    filters: dict[str, Any] | None = None
+    style: dict[str, Any] | None = None
+
+
+class TemplatePresetOut(BaseModel):
+    id: str
+    label_zh: str
+    label_en: str
+    description_zh: str
+
+
 class ReportRunCreate(BaseModel):
     profile_id: int
 

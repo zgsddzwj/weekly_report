@@ -1,29 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from jinja2 import Template
 
-DEFAULT_TEMPLATE = """# {{ title }}
-
-**周期**: {{ window_start }} ~ {{ window_end }}  
-**仓库**: {{ repo_list }}
-
-## 提交概览
-
-{% if commits %}
-| 仓库 | 提交 | 说明 | 作者 | 时间 |
-|------|------|------|------|------|
-{% for c in commits -%}
-| `{{ c.repo }}` | [{{ c.sha }}]({{ c.url }}) | {{ c.message | e }} | {{ c.author | e }} | {{ c.date }} |
-{% endfor %}
-{% else %}
-本周所选时间窗内无匹配提交（或 Token 权限不足 / 仓库名格式应为 `owner/repo`）。
-{% endif %}
-
-## 备注
-
-{{ footer }}
-"""
+from app.template_presets import resolve_markdown_template_string
 
 
 def render_report_markdown(
@@ -46,10 +26,8 @@ def render_report_markdown(
 
     now = datetime.utcnow()
     window_end = now.strftime("%Y-%m-%d")
-    from datetime import timedelta
-
     window_start = (now - timedelta(days=window_days)).strftime("%Y-%m-%d")
-    body_tpl = style.get("markdown_template") or DEFAULT_TEMPLATE
+    body_tpl = resolve_markdown_template_string(style)
     tpl = Template(body_tpl)
     return tpl.render(
         title=title,

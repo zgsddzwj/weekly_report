@@ -31,6 +31,13 @@ type ReportRun = {
   finished_at: string | null;
 };
 
+type TemplatePreset = {
+  id: string;
+  label_zh: string;
+  label_en: string;
+  description_zh: string;
+};
+
 export default function Dashboard() {
   const nav = useNavigate();
   const [err, setErr] = useState<string | null>(null);
@@ -47,6 +54,21 @@ export default function Dashboard() {
   const [pConn, setPConn] = useState<number | "">("");
   const [pRepos, setPRepos] = useState("octocat/Hello-World");
   const [pDays, setPDays] = useState(7);
+  const [pTemplatePreset, setPTemplatePreset] = useState("default");
+  const [pIgnoreBots, setPIgnoreBots] = useState(true);
+  const [pHideMerge, setPHideMerge] = useState(false);
+  const [pHideSkipCi, setPHideSkipCi] = useState(false);
+
+  const [presets, setPresets] = useState<TemplatePreset[]>([]);
+  const [eProfileId, setEProfileId] = useState<number | "">("");
+  const [eName, setEName] = useState("");
+  const [eConn, setEConn] = useState<number | "">("");
+  const [eRepos, setERepos] = useState("");
+  const [eDays, setEDays] = useState(7);
+  const [eTemplatePreset, setETemplatePreset] = useState("default");
+  const [eIgnoreBots, setEIgnoreBots] = useState(true);
+  const [eHideMerge, setEHideMerge] = useState(false);
+  const [eHideSkipCi, setEHideSkipCi] = useState(false);
 
   const [genProfileId, setGenProfileId] = useState<number | "">("");
   const [activeRun, setActiveRun] = useState<ReportRun | null>(null);
@@ -54,16 +76,19 @@ export default function Dashboard() {
   const refresh = useCallback(async () => {
     setErr(null);
     try {
-      const [c, p, r] = await Promise.all([
+      const [c, p, r, tp] = await Promise.all([
         api<GitConnection[]>("/git-connections"),
         api<ReportProfile[]>("/report-profiles"),
         api<ReportRun[]>("/reports?limit=30"),
+        api<TemplatePreset[]>("/report-profiles/template-presets"),
       ]);
       setConnections(c);
       setProfiles(p);
       setRuns(r);
+      setPresets(tp);
       setPConn((prev) => (prev === "" && c.length ? c[0].id : prev));
       setGenProfileId((prev) => (prev === "" && p.length ? p[0].id : prev));
+      setEProfileId((prev) => (prev === "" && p.length ? p[0].id : prev));
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "加载失败");
     }
@@ -125,13 +150,64 @@ export default function Dashboard() {
           git_connection_id: pConn,
           repo_full_names: pRepos,
           window_days: pDays,
-          filters: { ignore_bots: true },
-          style: { language: "zh" },
+          filters: {
+            ignore_bots: pIgnoreBots,
+            hide_merge_commits: pHideMerge,
+            hide_skip_ci_commits: pHideSkipCi,
+          },
+          style: { language: "zh", template_preset: pTemplatePreset },
         }),
       });
       await refresh();
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "创建档案失败");
+    }
+  }
+
+  async function loadProfileForEdit() {
+    if (eProfileId === "") return;
+    setErr(null);
+    try {
+      const prof = await api<ReportProfile>(`/report-profiles/${eProfileId}`);
+      setEName(prof.name);
+      setEConn(prof.git_connection_id);
+      setERepos(prof.repo_full_names);
+      setEDays(prof.window_days);
+      const f = prof.filters || {};
+      setEIgnoreBots(f.ignore_bots !== false);
+      setEHideMerge(Boolean(f.hide_merge_commits));
+      setEHideSkipCi(Boolean(f.hide_skip_ci_commits));
+      const st = prof.style || {};
+      const pid = typeof st.template_preset === "string" ? st.template_preset : "default";
+      setETemplatePreset(["default", "compact", "formal_zh"].includes(pid) ? pid : "default");
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "加载档案失败");
+    }
+  }
+
+  async function saveEditedProfile(e: FormEvent) {
+    e.preventDefault();
+    if (eProfileId === "" || eConn === "") return;
+    setErr(null);
+    try {
+      await api<ReportProfile>(`/report-profiles/${eProfileId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: eName,
+          git_connection_id: eConn,
+          repo_full_names: eRepos,
+          window_days: eDays,
+          filters: {
+            ignore_bots: eIgnoreBots,
+            hide_merge_commits: eHideMerge,
+            hide_skip_ci_commits: eHideSkipCi,
+          },
+          style: { template_preset: eTemplatePreset, language: "zh" },
+        }),
+      });
+      await refresh();
+    } catch (ex) {
+      setErr(ex instanceof Error ? ex.message : "更新档案失败");
     }
   }
 
@@ -227,8 +303,119 @@ export default function Dashboard() {
               onChange={(e) => setPDays(Number(e.target.value))}
             />
           </label>
+          <label>
+            内置模板
+            <select value={pTemplatePreset} onChange={(e) => setPTemplatePreset(e.target.value)}>
+              {presets.length === 0 ? <option value="default">default</option> : null}
+              {presets.map((tp) => (
+                <option key={tp.id} value={tp.id} title={tp.description_zh}>
+                  {tp.label_zh}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={pIgnoreBots} onChange={(e) => setPIgnoreBots(e.target.checked)} />
+              忽略机器人提交
+            </label>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={pHideMerge} onChange={(e) => setPHideMerge(e.target.checked)} />
+              隐藏 merge 提交
+            </label>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={pHideSkipCi} onChange={(e) => setPHideSkipCi(e.target.checked)} />
+              隐藏含 [skip ci] / [ci skip] 的提交
+            </label>
+          </div>
           <button type="submit" disabled={!connections.length}>
             保存档案
+          </button>
+        </form>
+      </section>
+
+      <section className="card">
+        <h2>编辑周报档案</h2>
+        <p style={{ color: "#64748b", fontSize: "0.9rem" }}>
+          选择档案后点「加载到表单」，修改后「保存修改」会调用 PATCH（与架构文档 §7 对齐）。
+        </p>
+        <form onSubmit={saveEditedProfile} className="row">
+          <label>
+            要编辑的档案
+            <select
+              value={eProfileId === "" ? "" : String(eProfileId)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setEProfileId(v === "" ? "" : Number(v));
+              }}
+            >
+              {profiles.length === 0 ? <option value="">请先创建档案</option> : null}
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  #{p.id} {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="secondary" disabled={eProfileId === ""} onClick={() => void loadProfileForEdit()}>
+            加载到表单
+          </button>
+          <label>
+            名称
+            <input value={eName} onChange={(e) => setEName(e.target.value)} required />
+          </label>
+          <label>
+            使用连接
+            <select value={eConn} onChange={(e) => setEConn(Number(e.target.value))}>
+              {connections.length === 0 ? <option value="">请先添加连接</option> : null}
+              {connections.map((c) => (
+                <option key={c.id} value={c.id}>
+                  #{c.id} {c.label} ({c.provider})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ flex: 1, minWidth: "18rem" }}>
+            仓库列表
+            <textarea rows={4} value={eRepos} onChange={(e) => setERepos(e.target.value)} required />
+          </label>
+          <label>
+            回溯天数
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={eDays}
+              onChange={(e) => setEDays(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            内置模板
+            <select value={eTemplatePreset} onChange={(e) => setETemplatePreset(e.target.value)}>
+              {presets.length === 0 ? <option value="default">default</option> : null}
+              {presets.map((tp) => (
+                <option key={tp.id} value={tp.id} title={tp.description_zh}>
+                  {tp.label_zh}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={eIgnoreBots} onChange={(e) => setEIgnoreBots(e.target.checked)} />
+              忽略机器人提交
+            </label>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={eHideMerge} onChange={(e) => setEHideMerge(e.target.checked)} />
+              隐藏 merge 提交
+            </label>
+            <label style={{ display: "inline-flex", gap: "0.35rem", alignItems: "center" }}>
+              <input type="checkbox" checked={eHideSkipCi} onChange={(e) => setEHideSkipCi(e.target.checked)} />
+              隐藏含 [skip ci] / [ci skip] 的提交
+            </label>
+          </div>
+          <button type="submit" disabled={eProfileId === "" || !connections.length}>
+            保存修改
           </button>
         </form>
       </section>

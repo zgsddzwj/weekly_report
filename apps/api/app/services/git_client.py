@@ -27,6 +27,29 @@ def _gitlab_headers(token: str) -> dict[str, str]:
     return {"PRIVATE-TOKEN": token}
 
 
+def _httpx_client() -> httpx.Client:
+    """trust_env=True honors HTTP(S)_PROXY for corporate egress (architecture §3.3)."""
+    return httpx.Client(timeout=60.0, trust_env=True)
+
+
+def _message_has_skip_ci_tag(message: str) -> bool:
+    m = (message or "").lower()
+    return "[skip ci]" in m or "[ci skip]" in m
+
+
+def _should_skip_commit(
+    message: str,
+    is_merge: bool,
+    hide_merge_commits: bool,
+    hide_skip_ci_commits: bool,
+) -> bool:
+    if hide_merge_commits and is_merge:
+        return True
+    if hide_skip_ci_commits and _message_has_skip_ci_tag(message):
+        return True
+    return False
+
+
 def fetch_commits_for_window(
     conn: GitConnection,
     token: str,
@@ -35,12 +58,10 @@ def fetch_commits_for_window(
     filters: dict[str, Any],
 ) -> list[dict[str, Any]]:
     since = datetime.now(timezone.utc) - timedelta(days=window_days)
-    ignore_bots = bool(filters.get("ignore_bots", True))
-    min_insertions = int(filters.get("min_insertions", 0) or 0)
     if conn.provider == "github":
-        return _fetch_github(conn.base_url.rstrip("/"), token, repo_full_names, since, ignore_bots, min_insertions)
+        return _fetch_github(conn.base_url.rstrip("/"), token, repo_full_names, since, filters)
     if conn.provider == "gitlab":
-        return _fetch_gitlab(conn.base_url.rstrip("/"), token, repo_full_names, since, ignore_bots, min_insertions)
+        return _fetch_gitlab(conn.base_url.rstrip("/"), token, repo_full_names, since, filters)
     raise ValueError(f"Unsupported provider: {conn.provider}")
 
 
@@ -49,13 +70,16 @@ def _fetch_github(
     token: str,
     repos: list[str],
     since: datetime,
-    ignore_bots: bool,
-    min_insertions: int,
+    filters: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    ignore_bots = bool(filters.get("ignore_bots", True))
+    min_insertions = int(filters.get("min_insertions", 0) or 0)
+    hide_merge_commits = bool(filters.get("hide_merge_commits", False))
+    hide_skip_ci_commits = bool(filters.get("hide_skip_ci_commits", False))
     since_s = since.strftime("%Y-%m-%dT%H:%M:%SZ")
     headers = _github_headers(token)
     results: list[dict[str, Any]] = []
-    with httpx.Client(timeout=60.0) as client:
+    with _httpx_client() as client:
         for full in repos:
             owner, _, name = full.partition("/")
             if not name:
@@ -79,6 +103,10 @@ def _fetch_github(
                     stats = c.get("stats") or {}
                     add = int(stats.get("additions") or 0)
                     if min_insertions > 0 and add < min_insertions:
+                        continue
+                    parents = c.get("parents") if isinstance(c.get("parents"), list) else []
+                    is_merge = len(parents) > 1
+                    if _should_skip_commit(msg, is_merge, hide_merge_commits, hide_skip_ci_commits):
                         continue
                     date_s = (commit.get("author") or {}).get("date") or ""
                     link = ""
@@ -115,13 +143,16 @@ def _fetch_gitlab(
     token: str,
     repos: list[str],
     since: datetime,
-    ignore_bots: bool,
-    min_insertions: int,
+    filters: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    ignore_bots = bool(filters.get("ignore_bots", True))
+    min_insertions = int(filters.get("min_insertions", 0) or 0)
+    hide_merge_commits = bool(filters.get("hide_merge_commits", False))
+    hide_skip_ci_commits = bool(filters.get("hide_skip_ci_commits", False))
     headers = _gitlab_headers(token)
     since_s = since.isoformat()
     results: list[dict[str, Any]] = []
-    with httpx.Client(timeout=60.0) as client:
+    with _httpx_client() as client:
         for full in repos:
             encoded = full.replace("/", "%2F")
             base = f"{api_base}/projects/{encoded}/repository/commits"
@@ -153,6 +184,10 @@ def _fetch_gitlab(
                             stats = sr.json().get("stats") or {}
                             add = int(stats.get("additions") or 0)
                     if min_insertions > 0 and add < min_insertions:
+                        continue
+                    parent_ids = c.get("parent_ids") if isinstance(c.get("parent_ids"), list) else []
+                    is_merge = len(parent_ids) > 1
+                    if _should_skip_commit(msg, is_merge, hide_merge_commits, hide_skip_ci_commits):
                         continue
                     date_s = c.get("committed_date") or ""
                     web = c.get("web_url") or ""

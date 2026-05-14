@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # Comma-separated origins (env-friendly for Docker)
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
 
+    # Architecture §3.4 feature flags (safe defaults for private deployments)
+    feature_llm: bool = False
+    feature_external_telemetry: bool = False
+    allow_public_oauth: bool = True
+
     def cors_origin_list(self) -> list[str]:
         return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
 
