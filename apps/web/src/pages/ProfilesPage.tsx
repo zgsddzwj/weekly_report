@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { FolderOpen, Plus, Trash2, Edit3, ChevronRight, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
-import type { GitConnection, ReportProfile, TemplatePreset } from "../types";
+import type { GitConnection, ReportProfile, TemplatePreset, TonePreset } from "../types";
 
 export default function ProfilesPage() {
   const toast = useToast();
@@ -11,6 +11,7 @@ export default function ProfilesPage() {
   const [connections, setConnections] = useState<GitConnection[]>([]);
   const [profiles, setProfiles] = useState<ReportProfile[]>([]);
   const [presets, setPresets] = useState<TemplatePreset[]>([]);
+  const [tones, setTones] = useState<TonePreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [step, setStep] = useState(0);
@@ -29,18 +30,22 @@ export default function ProfilesPage() {
   const [scheduleTimezone, setScheduleTimezone] = useState("Asia/Shanghai");
   const [customTemplate, setCustomTemplate] = useState("");
   const [llmGenerate, setLlmGenerate] = useState(true);
+  const [tone, setTone] = useState("neutral");
+  const [customTone, setCustomTone] = useState("");
 
   const refresh = useCallback(async () => {
     setErr(null);
     try {
-      const [c, p, tp] = await Promise.all([
+      const [c, p, tp, tn] = await Promise.all([
         api<GitConnection[]>("/git-connections"),
         api<ReportProfile[]>("/report-profiles"),
         api<TemplatePreset[]>("/report-profiles/template-presets"),
+        api<TonePreset[]>("/report-profiles/tone-presets"),
       ]);
       setConnections(c);
       setProfiles(p);
       setPresets(tp);
+      setTones(tn);
       setConnId((prev) => (prev === "" && c.length ? c[0].id : prev));
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "加载失败");
@@ -57,8 +62,9 @@ export default function ProfilesPage() {
     e.preventDefault();
     if (connId === "") return;
     setErr(null);
-    const style: Record<string, unknown> = { language: "zh", template_preset: templatePreset };
+    const style: Record<string, unknown> = { language: "zh", template_preset: templatePreset, tone };
     if (customTemplate.trim()) style.markdown_template = customTemplate.trim();
+    if (tone === "custom" && customTone.trim()) style.custom_tone = customTone.trim();
     try {
       await api<ReportProfile>("/report-profiles", {
         method: "POST",
@@ -165,6 +171,21 @@ export default function ProfilesPage() {
                         <option value="llm">🤖 AI 智能生成（段落式汇报）</option>
                       </select>
                     </div>
+                    <div className="form-group">
+                      <label>报告风格</label>
+                      <select value={tone} onChange={(e) => setTone(e.target.value)}>
+                        {tones.map((t) => (
+                          <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                        <option value="custom">✏️ 自定义</option>
+                      </select>
+                    </div>
+                    {tone === "custom" && (
+                      <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                        <label>自定义风格描述</label>
+                        <textarea rows={2} value={customTone} onChange={(e) => setCustomTone(e.target.value)} placeholder="如：请以轻松幽默的口吻撰写，适合团队内部分享" />
+                      </div>
+                    )}
                   </div>
                 )}
                 {step === 1 && (

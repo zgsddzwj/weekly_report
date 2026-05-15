@@ -10,26 +10,35 @@ import httpx
 from app.config import get_settings
 
 
-SYSTEM_PROMPT = """You are a technical weekly report generator. Your task is to read the provided Git commits and pull requests, and generate a structured weekly report in Markdown.
+_TONE_HINTS: dict[str, str] = {
+    "neutral": "",
+    "brief": "Tone: concise and brief. Keep each section short. Use bullet points heavily.",
+    "formal": "Tone: formal and detailed. Use professional business language suitable for manager review.",
+    "technical": "Tone: deep technical focus. Explain architectural decisions, code changes, and engineering trade-offs.",
+    "business": "Tone: business-value oriented. Connect commits to product features, user impact, and business outcomes.",
+}
 
-Rules (strict):
-1. Output ONLY valid JSON with this exact structure:
-   {
-     "title": "Weekly Report Title",
-     "sections": [
-       {"heading": "本周完成", "content": "Markdown content..."},
-       {"heading": "关键变更", "content": "Markdown content..."},
-       {"heading": "风险与问题", "content": "Markdown content..."},
-       {"heading": "下周计划建议", "content": "Markdown content..."}
-     ]
-   }
-2. Do NOT invent any repository names, SHAs, URLs, ticket IDs, or people not present in the input.
-3. Preserve every factual link and short SHA from the input commits.
-4. Group related commits by repository or theme when possible.
-5. Use concise, professional Chinese language (unless input asks for English).
-6. If there are no commits in the window, state that clearly in "本周完成".
-7. The "content" of each section should be valid Markdown (lists, links, tables allowed).
-"""
+
+def _system_prompt_for_tone(tone: str, custom_tone: str | None) -> str:
+    tone_rule = ""
+    if custom_tone:
+        tone_rule = f"Tone guidance: {custom_tone}\n"
+    elif tone in _TONE_HINTS and _TONE_HINTS[tone]:
+        tone_rule = _TONE_HINTS[tone] + "\n"
+    return (
+        "You are a technical weekly report generator. Your task is to read the provided Git commits and pull requests, and generate a structured weekly report in Markdown.\n"
+        "\n"
+        "Rules (strict):\n"
+        "1. Output ONLY valid JSON with this exact structure:\n"
+        '   {"title": "Weekly Report Title", "sections": [{"heading": "...", "content": "..."}]}\n'
+        "2. Do NOT invent any repository names, SHAs, URLs, ticket IDs, or people not present in the input.\n"
+        "3. Preserve every factual link and short SHA from the input commits.\n"
+        "4. Group related commits by repository or theme when possible.\n"
+        "5. Use concise, professional Chinese language (unless input asks for English).\n"
+        "6. If there are no commits in the window, state that clearly.\n"
+        "7. The \"content\" of each section should be valid Markdown.\n"
+        f"{tone_rule}"
+    )
 
 
 def _build_user_message(
@@ -109,11 +118,13 @@ def generate_report_with_llm(
     if settings.llm_api_key:
         headers["Authorization"] = f"Bearer {settings.llm_api_key}"
 
+    tone = style.get("tone", "neutral")
+    custom_tone = style.get("custom_tone")
     body = {
         "model": settings.llm_model,
         "temperature": 0.3,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": _system_prompt_for_tone(tone, custom_tone)},
             {"role": "user", "content": user_msg},
         ],
         "response_format": {"type": "json_object"},

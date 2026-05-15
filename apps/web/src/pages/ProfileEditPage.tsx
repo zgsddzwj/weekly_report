@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Save, X, Globe, Copy, CheckCircle, Sparkles } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
-import type { GitConnection, ReportProfile, TemplatePreset } from "../types";
+import type { GitConnection, ReportProfile, TemplatePreset, TonePreset } from "../types";
 
 const tabs = ["基本信息", "过滤规则", "模板与定时", "Webhook"];
 
@@ -19,6 +19,7 @@ export default function ProfileEditPage() {
   const [tab, setTab] = useState(0);
   const [connections, setConnections] = useState<GitConnection[]>([]);
   const [presets, setPresets] = useState<TemplatePreset[]>([]);
+  const [tones, setTones] = useState<TonePreset[]>([]);
 
   const [name, setName] = useState("");
   const [connId, setConnId] = useState<number | "">("");
@@ -34,19 +35,23 @@ export default function ProfileEditPage() {
   const [scheduleTimezone, setScheduleTimezone] = useState("Asia/Shanghai");
   const [customTemplate, setCustomTemplate] = useState("");
   const [llmGenerate, setLlmGenerate] = useState(false);
+  const [tone, setTone] = useState("neutral");
+  const [customTone, setCustomTone] = useState("");
   const [hookUrl, setHookUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const [c, tp, prof] = await Promise.all([
+        const [c, tp, tn, prof] = await Promise.all([
           api<GitConnection[]>("/git-connections"),
           api<TemplatePreset[]>("/report-profiles/template-presets"),
+          api<TonePreset[]>("/report-profiles/tone-presets"),
           api<ReportProfile>(`/report-profiles/${profileId}`),
         ]);
         setConnections(c);
         setPresets(tp);
+        setTones(tn);
         setName(prof.name);
         setConnId(prof.git_connection_id);
         setRepos(prof.repo_full_names);
@@ -60,6 +65,8 @@ export default function ProfileEditPage() {
         setTemplatePreset(["default", "compact", "formal_zh"].includes(pid) ? pid : "default");
         setIncludePrs(prof.include_prs);
         setLlmGenerate(prof.llm_generate);
+        setTone(typeof st.tone === "string" ? st.tone : "neutral");
+        setCustomTone(typeof st.custom_tone === "string" ? st.custom_tone : "");
         setScheduleEnabled(prof.schedule_enabled);
         setScheduleCron(prof.schedule_cron || "0 9 * * 1");
         setScheduleTimezone(prof.schedule_timezone || "UTC");
@@ -79,8 +86,9 @@ export default function ProfileEditPage() {
     if (connId === "") return;
     setSaving(true);
     setErr(null);
-    const style: Record<string, unknown> = { template_preset: templatePreset, language: "zh" };
+    const style: Record<string, unknown> = { template_preset: templatePreset, language: "zh", tone };
     if (customTemplate.trim()) style.markdown_template = customTemplate.trim();
+    if (tone === "custom" && customTone.trim()) style.custom_tone = customTone.trim();
     try {
       await api<ReportProfile>(`/report-profiles/${profileId}`, {
         method: "PATCH",
@@ -191,13 +199,28 @@ export default function ProfileEditPage() {
                   </div>
                 </>
               )}
-              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <div className="form-group">
                 <label>生成模式</label>
                 <select value={llmGenerate ? "llm" : "template"} onChange={(e) => setLlmGenerate(e.target.value === "llm")}>
                   <option value="template">📋 模板生成（传统模式）</option>
                   <option value="llm">🤖 AI 智能生成（LLM 总结）</option>
                 </select>
               </div>
+              <div className="form-group">
+                <label>报告风格</label>
+                <select value={tone} onChange={(e) => setTone(e.target.value)}>
+                  {tones.map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                  <option value="custom">✏️ 自定义</option>
+                </select>
+              </div>
+              {tone === "custom" && (
+                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                  <label>自定义风格描述</label>
+                  <textarea rows={2} value={customTone} onChange={(e) => setCustomTone(e.target.value)} placeholder="如：请以轻松幽默的口吻撰写，适合团队内部分享" />
+                </div>
+              )}
               <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                 <label>自定义 Markdown 模板（留空使用内置；Jinja2 语法）</label>
                 <textarea rows={6} value={customTemplate} onChange={(e) => setCustomTemplate(e.target.value)} placeholder="可选：覆盖内置模板" />

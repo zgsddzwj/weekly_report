@@ -307,6 +307,11 @@ export default function Dashboard() {
                           <span className="badge" style={{ background: "var(--bg)", color: "var(--text-muted)", fontSize: "0.7rem" }}>📋 模板</span>
                         )}
                         <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{p.window_days}天</span>
+                        {(p.style as Record<string, unknown>)?.tone && (p.style as Record<string, unknown>).tone !== "neutral" ? (
+                          <span className="badge" style={{ background: "var(--warning-light)", color: "var(--warning)", fontSize: "0.7rem" }}>
+                            {(p.style as Record<string, unknown>).tone === "custom" ? "✏️ 自定义" : (p.style as Record<string, unknown>).tone as string}
+                          </span>
+                        ) : null}
                       </div>
                       <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.35rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {p.repo_full_names}

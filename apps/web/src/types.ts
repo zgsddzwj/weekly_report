@@ -42,6 +42,12 @@ export type TemplatePreset = {
   description_zh: string;
 };
 
+export type TonePreset = {
+  id: string;
+  label: string;
+  description: string;
+};
+
 export type Organization = {
   id: number;
   name: string;

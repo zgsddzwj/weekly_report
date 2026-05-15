@@ -65,10 +65,24 @@ def _validate_cron(expr: str | None) -> None:
         raise HTTPException(status_code=422, detail=f"Invalid schedule_cron: {exc}") from exc
 
 
+_TONE_PRESETS: list[dict[str, str]] = [
+    {"id": "neutral", "label": "中性（默认）", "description": "平衡的技术汇报风格"},
+    {"id": "brief", "label": "简洁明快", "description": "Bullet 为主，一页纸说完"},
+    {"id": "formal", "label": "正式汇报", "description": "适合向上级汇报，措辞专业"},
+    {"id": "technical", "label": "技术深度", "description": "关注架构决策和代码变更细节"},
+    {"id": "business", "label": "业务价值", "description": "聚焦业务影响和产品价值"},
+]
+
+
 @router.get("/template-presets", response_model=list[TemplatePresetOut])
 def list_template_presets(_user: CurrentUser) -> list[dict[str, str]]:
     """Registered before `/{profile_id}` so the path is not parsed as an integer id."""
     return TEMPLATE_PRESET_CATALOG
+
+
+@router.get("/tone-presets", response_model=list[dict[str, str]])
+def list_tone_presets(_user: CurrentUser) -> list[dict[str, str]]:
+    return _TONE_PRESETS
 
 
 @router.get("", response_model=list[ReportProfileOut])
