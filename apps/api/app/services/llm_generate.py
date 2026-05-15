@@ -22,11 +22,13 @@ _TONE_HINTS: dict[str, str] = {
 def _system_prompt_for_tone(tone: str, custom_tone: str | None) -> str:
     tone_rule = ""
     if custom_tone:
-        tone_rule = f"Tone guidance: {custom_tone}\n"
+        tone_rule = f"写作风格要求（优先遵循）：{custom_tone}\n"
     elif tone in _TONE_HINTS and _TONE_HINTS[tone]:
         tone_rule = _TONE_HINTS[tone] + "\n"
     return (
         "You are a technical weekly report generator. Your task is to read the provided Git commits and pull requests, and generate a structured weekly report in Markdown.\n"
+        "\n"
+        f"{tone_rule}"
         "\n"
         "Rules (strict):\n"
         "1. Output ONLY valid JSON with this exact structure:\n"
@@ -37,7 +39,6 @@ def _system_prompt_for_tone(tone: str, custom_tone: str | None) -> str:
         "5. Use concise, professional Chinese language (unless input asks for English).\n"
         "6. If there are no commits in the window, state that clearly.\n"
         "7. The \"content\" of each section should be valid Markdown.\n"
-        f"{tone_rule}"
     )
 
 
