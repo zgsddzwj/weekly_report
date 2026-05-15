@@ -272,12 +272,35 @@ export default function Dashboard() {
               </button>
             </form>
             {genProfileId !== "" && (
-              <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                当前模式：{profiles.find((p) => p.id === genProfileId)?.llm_generate ? (
-                  <span style={{ color: "var(--primary)" }}>🤖 AI 智能生成 — 大模型直接总结提交记录</span>
-                ) : (
-                  <span>📋 模板生成 — Jinja2 模板填充</span>
-                )}
+              <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.85rem" }}>
+                <span style={{ color: "var(--text-muted)" }}>
+                  当前模式：
+                  {profiles.find((p) => p.id === genProfileId)?.llm_generate ? (
+                    <span style={{ color: "var(--primary)", fontWeight: 600 }}>🤖 AI 智能生成</span>
+                  ) : (
+                    <span style={{ fontWeight: 600 }}>📋 模板生成</span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={async () => {
+                    const p = profiles.find((x) => x.id === genProfileId);
+                    if (!p) return;
+                    try {
+                      await api<ReportProfile>(`/report-profiles/${p.id}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({ llm_generate: !p.llm_generate }),
+                      });
+                      toast.showSuccess(`已切换到 ${!p.llm_generate ? "🤖 AI 智能生成" : "📋 模板生成"}`);
+                      await refresh();
+                    } catch (ex) {
+                      toast.showError(ex instanceof Error ? ex.message : "切换失败");
+                    }
+                  }}
+                >
+                  切换为 {profiles.find((p) => p.id === genProfileId)?.llm_generate ? "📋 模板" : "🤖 AI"}
+                </button>
               </div>
             )}
             {activeRun ? (
