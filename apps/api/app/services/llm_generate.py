@@ -22,7 +22,7 @@ _TONE_HINTS: dict[str, str] = {
 def _system_prompt_for_tone(tone: str, custom_tone: str | None) -> str:
     tone_rule = ""
     if custom_tone:
-        tone_rule = f"写作风格要求（优先遵循）：{custom_tone}\n"
+        tone_rule = f"写作风格要求（必须严格遵循）：{custom_tone}\n"
     elif tone in _TONE_HINTS and _TONE_HINTS[tone]:
         tone_rule = _TONE_HINTS[tone] + "\n"
     return (
@@ -36,7 +36,7 @@ def _system_prompt_for_tone(tone: str, custom_tone: str | None) -> str:
         "2. Do NOT invent any repository names, SHAs, URLs, ticket IDs, or people not present in the input.\n"
         "3. Preserve every factual link and short SHA from the input commits.\n"
         "4. Group related commits by repository or theme when possible.\n"
-        "5. Use concise, professional Chinese language (unless input asks for English).\n"
+        "5. Use Chinese language (unless input asks for English). Match the writing style to the tone guidance above.\n"
         "6. If there are no commits in the window, state that clearly.\n"
         "7. The \"content\" of each section should be valid Markdown.\n"
     )
@@ -53,13 +53,16 @@ def _build_user_message(
 ) -> str:
     language = style.get("language", "zh")
     tone = style.get("tone", "neutral")
+    custom_tone = style.get("custom_tone")
     title_hint = style.get("title") or ("Weekly Report" if language == "en" else f"{profile_name} 工作周报")
 
     tone_hint = ""
-    if tone == "brief":
-        tone_hint = "Tone: concise and brief. Keep each section short.\n"
+    if custom_tone:
+        tone_hint = f"重要：报告必须采用以下风格撰写——{custom_tone}\n\n"
+    elif tone == "brief":
+        tone_hint = "Tone: concise and brief. Keep each section short.\n\n"
     elif tone == "formal":
-        tone_hint = "Tone: formal and detailed.\n"
+        tone_hint = "Tone: formal and detailed.\n\n"
 
     commit_text = json.dumps(commits[:500], ensure_ascii=False, indent=2)
     pr_text = json.dumps(prs[:200], ensure_ascii=False, indent=2) if prs else "[]"
@@ -70,7 +73,7 @@ def _build_user_message(
         f"Repositories: {', '.join(repos)}\n"
         f"Title hint: {title_hint}\n"
         f"{tone_hint}"
-        f"\nCommits:\n{commit_text}\n"
+        f"Commits:\n{commit_text}\n"
         f"\nPull Requests:\n{pr_text}\n"
     )
 
@@ -121,9 +124,12 @@ def generate_report_with_llm(
 
     tone = style.get("tone", "neutral")
     custom_tone = style.get("custom_tone")
+    # Higher temperature for custom tones to allow creative expression
+    temperature = 0.7 if (custom_tone or tone not in ("neutral", "brief")) else 0.3
+
     body = {
         "model": settings.llm_model,
-        "temperature": 0.3,
+        "temperature": temperature,
         "messages": [
             {"role": "system", "content": _system_prompt_for_tone(tone, custom_tone)},
             {"role": "user", "content": user_msg},
