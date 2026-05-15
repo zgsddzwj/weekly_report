@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Save, X, Globe, Copy, CheckCircle } from "lucide-react";
+import { Save, X, Globe, Copy, CheckCircle, Sparkles } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
 import type { GitConnection, ReportProfile, TemplatePreset } from "../types";
@@ -120,13 +120,13 @@ export default function ProfileEditPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>✏️ 编辑档案 #{profileId}</h1>
+        <h1>编辑档案 #{profileId}</h1>
         <button className="btn" onClick={() => nav("/profiles")}><X size={16} /> 取消</button>
       </div>
 
       {err ? <div className="alert alert-error"><span>{err}</span></div> : null}
 
-      <section className="card">
+      <section className="card" style={{ border: "1.5px solid #c7d2fe" }}>
         <div className="tabs">
           {tabs.map((t, i) => (
             <button key={i} className={`tab ${tab === i ? "active" : ""}`} onClick={() => setTab(i)}>{t}</button>
@@ -194,8 +194,8 @@ export default function ProfileEditPage() {
               <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                 <label>生成模式</label>
                 <select value={llmGenerate ? "llm" : "template"} onChange={(e) => setLlmGenerate(e.target.value === "llm")}>
-                  <option value="template">模板生成（传统模式）</option>
-                  <option value="llm">AI 智能生成（LLM 总结）</option>
+                  <option value="template">📋 模板生成（传统模式）</option>
+                  <option value="llm">🤖 AI 智能生成（LLM 总结）</option>
                 </select>
               </div>
               <div className="form-group" style={{ gridColumn: "1 / -1" }}>
@@ -210,7 +210,7 @@ export default function ProfileEditPage() {
                 外部系统可通过以下 URL 触发本档案生成报告。请求需携带 HMAC 签名（若已配置）。
               </p>
               <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <div style={{ flex: 1, background: "var(--bg)", padding: "0.6rem 0.8rem", borderRadius: "var(--radius-sm)", fontSize: "0.8rem", fontFamily: "monospace", wordBreak: "break-all", border: "1px solid var(--border)" }}>
+                <div style={{ flex: 1, background: "var(--bg)", padding: "0.7rem 0.9rem", borderRadius: "var(--radius-sm)", fontSize: "0.8rem", fontFamily: "monospace", wordBreak: "break-all", border: "1.5px solid var(--border)" }}>
                   <Globe size={14} style={{ verticalAlign: "-2px", marginRight: 6, color: "var(--text-muted)" }} />
                   {hookUrl}
                 </div>
@@ -220,7 +220,7 @@ export default function ProfileEditPage() {
               </div>
             </div>
           )}
-          <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
+          <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
             <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? <span className="spin">⏳</span> : <Save size={16} />} 保存修改
             </button>

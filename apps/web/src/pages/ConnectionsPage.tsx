@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Link2, Plus, Trash2, Globe, ExternalLink } from "lucide-react";
+import { Link2, Plus, Trash2, Globe, ExternalLink, ArrowRight, CheckCircle } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
 import type { GitConnection } from "../types";
@@ -71,7 +71,7 @@ export default function ConnectionsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>🔗 Git 连接</h1>
+        <h1>Git 连接</h1>
         <button className="btn btn-primary" onClick={() => setShowForm((s) => !s)}>
           <Plus size={16} /> {showForm ? "取消" : "新建连接"}
         </button>
@@ -80,11 +80,11 @@ export default function ConnectionsPage() {
       {err ? <div className="alert alert-error"><span>{err}</span></div> : null}
 
       {showForm && (
-        <section className="card">
+        <section className="card" style={{ border: "1.5px solid #c7d2fe", background: "linear-gradient(135deg, #fff 0%, #eef2ff 100%)" }}>
           <div className="card-header"><h2>新建 Git 连接</h2></div>
-          <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: "1rem" }}>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
             Token 会被加密存储，不会以明文显示。{" "}
-            <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">
+            <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer" style={{ color: "var(--primary)", fontWeight: 500 }}>
               去 GitHub 生成 Token <ExternalLink size={12} style={{ verticalAlign: "-1px" }} />
             </a>
           </p>
@@ -122,7 +122,7 @@ export default function ConnectionsPage() {
           <div style={{ height: 120, background: "var(--border)", borderRadius: 6 }} />
         ) : connections.length === 0 ? (
           <div className="empty-state">
-            <Link2 size={40} />
+            <Link2 size={48} style={{ color: "var(--primary)", opacity: 0.3 }} />
             <h3>暂无连接</h3>
             <p>点击右上角「新建连接」添加你的第一个 Git 平台</p>
           </div>
@@ -135,7 +135,9 @@ export default function ConnectionsPage() {
               {connections.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <span className="badge" style={{ textTransform: "uppercase", fontSize: "0.7rem" }}>{c.provider}</span>
+                    <span className="badge" style={{ textTransform: "uppercase", fontSize: "0.7rem", background: "var(--primary-light)", color: "var(--primary)" }}>
+                      {c.provider}
+                    </span>
                   </td>
                   <td style={{ fontWeight: 500 }}>{c.label}</td>
                   <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>

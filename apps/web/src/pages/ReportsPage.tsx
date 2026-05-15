@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ClipboardList, Download, Eye, X, Loader2, AlertCircle
+  ClipboardList, Download, Eye, X, Loader2, AlertCircle,
+  CheckCircle, FileText, Sparkles
 } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
@@ -66,7 +67,7 @@ export default function ReportsPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>📋 报告历史</h1>
+        <h1>报告历史</h1>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           <label style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem", color: "var(--text-muted)" }}>
             每页
@@ -92,7 +93,7 @@ export default function ReportsPage() {
           </div>
         ) : runs.length === 0 ? (
           <div className="empty-state">
-            <ClipboardList size={40} />
+            <ClipboardList size={48} style={{ opacity: 0.3 }} />
             <h3>暂无运行记录</h3>
             <p>去概览页生成你的第一份周报吧</p>
           </div>
@@ -104,11 +105,15 @@ export default function ReportsPage() {
             <tbody>
               {runs.map((r) => (
                 <tr key={r.id}>
-                  <td>#{r.id}</td>
+                  <td style={{ fontWeight: 600, fontSize: "0.85rem" }}>#{r.id}</td>
                   <td>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
                       {r.profile_id}
-                      {r.profile_snapshot?.llm_generate ? <span title="AI 智能生成">🤖</span> : <span title="模板生成">📋</span>}
+                      {r.profile_snapshot?.llm_generate ? (
+                        <span title="AI 智能生成" style={{ color: "var(--accent)" }}>🤖</span>
+                      ) : (
+                        <span title="模板生成" style={{ color: "var(--text-muted)" }}>📋</span>
+                      )}
                     </div>
                   </td>
                   <td><StatusBadge status={r.status} /></td>
@@ -145,24 +150,25 @@ export default function ReportsPage() {
                 <span>状态</span>
                 <StatusBadge status={detail.status} />
               </div>
+              {detail.profile_snapshot ? (
+                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
+                  生成模式：
+                  {detail.profile_snapshot.llm_generate ? (
+                    <span style={{ color: "var(--accent)", fontWeight: 600 }}>🤖 AI 智能生成</span>
+                  ) : (
+                    <span style={{ fontWeight: 600 }}>📋 模板生成</span>
+                  )}
+                </div>
+              ) : null}
               {detail.error_message ? (
                 <div className="alert alert-error" style={{ marginBottom: "0.75rem" }}>
                   <AlertCircle size={14} />{detail.error_message}
                 </div>
               ) : null}
-              {detail.profile_snapshot ? (
-                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
-                  生成模式：{detail.profile_snapshot.llm_generate ? (
-                    <span style={{ color: "var(--primary)" }}>🤖 AI 智能生成</span>
-                  ) : (
-                    <span>📋 模板生成</span>
-                  )}
-                </div>
-              ) : null}
               {detail.result_markdown ? (
                 <>
-                  <div style={{ marginBottom: "0.5rem", display: "flex", gap: "0.5rem" }}>
-                    <button className="btn btn-sm" onClick={() => downloadMarkdown(detail.result_markdown!, `report-${detail.id}.md`)}>
+                  <div style={{ marginBottom: "0.75rem", display: "flex", gap: "0.5rem" }}>
+                    <button className="btn btn-sm btn-success" onClick={() => downloadMarkdown(detail.result_markdown!, `report-${detail.id}.md`)}>
                       <Download size={14} /> 下载 .md
                     </button>
                   </div>

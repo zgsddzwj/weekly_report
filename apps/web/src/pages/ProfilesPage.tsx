@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { FolderOpen, Plus, Trash2, Edit3, ChevronRight, CheckCircle } from "lucide-react";
+import { FolderOpen, Plus, Trash2, Edit3, ChevronRight, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
 import type { GitConnection, ReportProfile, TemplatePreset } from "../types";
@@ -100,7 +100,7 @@ export default function ProfilesPage() {
   return (
     <div>
       <div className="page-header">
-        <h1>📁 周报档案</h1>
+        <h1>周报档案</h1>
         <button className="btn btn-primary" onClick={() => setShowForm((s) => !s)}>
           <Plus size={16} /> {showForm ? "取消" : "新建档案"}
         </button>
@@ -109,11 +109,11 @@ export default function ProfilesPage() {
       {err ? <div className="alert alert-error"><span>{err}</span></div> : null}
 
       {showForm && (
-        <section className="card">
+        <section className="card" style={{ border: "1.5px solid #c7d2fe", background: "linear-gradient(135deg, #fff 0%, #eef2ff 100%)" }}>
           <div className="card-header"><h2>新建档案向导</h2></div>
           {connections.length === 0 ? (
             <div className="empty-state">
-              <FolderOpen size={40} />
+              <FolderOpen size={40} style={{ color: "var(--primary)", opacity: 0.3 }} />
               <h3>还没有 Git 连接</h3>
               <p>先去 <Link to="/connections" className="link-btn">添加连接</Link></p>
             </div>
@@ -200,12 +200,12 @@ export default function ProfilesPage() {
                     </div>
                   </div>
                 )}
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "1.25rem" }}>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
                   {step > 0 && <button type="button" className="btn" onClick={() => setStep((s) => s - 1)}>上一步</button>}
                   {step < steps.length - 1 ? (
                     <button type="button" className="btn btn-primary" onClick={() => setStep((s) => s + 1)}>下一步 <ChevronRight size={14} /></button>
                   ) : (
-                    <button type="submit" className="btn btn-primary"><Plus size={16} /> 保存档案</button>
+                    <button type="submit" className="btn btn-primary"><Sparkles size={16} /> 保存档案</button>
                   )}
                 </div>
               </form>
@@ -220,21 +220,28 @@ export default function ProfilesPage() {
           <div style={{ height: 120, background: "var(--border)", borderRadius: 6 }} />
         ) : profiles.length === 0 ? (
           <div className="empty-state">
-            <FolderOpen size={40} />
+            <FolderOpen size={48} style={{ color: "var(--accent)", opacity: 0.3 }} />
             <h3>暂无档案</h3>
             <p>点击右上角「新建档案」创建你的第一个周报方案</p>
           </div>
         ) : (
           <table className="data-table">
             <thead>
-              <tr><th>名称</th><th>仓库</th><th>时间窗</th><th>定时</th><th>操作</th></tr>
+              <tr><th>名称</th><th>仓库</th><th>时间窗</th><th>模式</th><th>定时</th><th>操作</th></tr>
             </thead>
             <tbody>
               {profiles.map((p) => (
                 <tr key={p.id}>
-                  <td style={{ fontWeight: 500 }}>#{p.id} {p.name}</td>
+                  <td style={{ fontWeight: 600 }}>#{p.id} {p.name}</td>
                   <td style={{ fontSize: "0.8rem", color: "var(--text-muted)", maxWidth: "18rem", overflow: "hidden", textOverflow: "ellipsis" }}>{p.repo_full_names}</td>
                   <td>{p.window_days} 天</td>
+                  <td>
+                    {p.llm_generate ? (
+                      <span className="badge badge-llm">🤖 AI</span>
+                    ) : (
+                      <span className="badge" style={{ background: "var(--bg)", color: "var(--text-muted)" }}>📋 模板</span>
+                    )}
+                  </td>
                   <td>{p.schedule_enabled ? <span className="badge badge-success">已启用</span> : "—"}</td>
                   <td>
                     <div style={{ display: "flex", gap: "0.35rem" }}>
