@@ -86,9 +86,9 @@ def generate_report(run_id: int) -> None:
                     repos=repos,
                     style=style,
                 )
-                log.info("report.llm_generate_success", run_id=run.id)
+                log.info("report.llm_generate_success run_id=%s", run.id)
             except Exception as llm_exc:
-                log.warning("report.llm_generate_failed_falling_back", run_id=run.id, error=str(llm_exc))
+                log.warning("report.llm_generate_failed_falling_back run_id=%s error=%s", run.id, llm_exc)
                 md = render_report_markdown(
                     commits,
                     profile.name,

@@ -69,9 +69,9 @@ def tick_scheduled_reports() -> int:
                 db.refresh(run)
                 generate_report.delay(run.id)
                 enqueued += 1
-                log.info("schedule.enqueued", profile_id=profile.id, run_id=run.id)
+                log.info("schedule.enqueued profile_id=%s run_id=%s", profile.id, run.id)
             except Exception as exc:  # noqa: BLE001
-                log.warning("schedule.profile_skipped", profile_id=profile.id, error=str(exc))
+                log.warning("schedule.profile_skipped profile_id=%s error=%s", profile.id, exc)
                 db.rollback()
         return enqueued
     finally:
