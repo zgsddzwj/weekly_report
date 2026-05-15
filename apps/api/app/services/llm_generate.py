@@ -26,16 +26,24 @@ def _system_prompt_for_tone(tone: str, custom_tone: str | None) -> str:
     elif tone in _TONE_HINTS and _TONE_HINTS[tone]:
         tone_rule = _TONE_HINTS[tone] + "\n"
     return (
-        "You are a technical weekly report generator. Your task is to read the provided Git commits and pull requests, and generate a structured weekly report in Markdown.\n"
+        "You are a technical weekly report writer. Your task is to read the provided Git commits and pull requests, "
+        "and write a WEEKLY WORK REPORT for human readers (managers, teammates).\n"
+        "\n"
+        "IMPORTANT: This is NOT a code review or commit list. It is a WORK SUMMARY.\n"
+        "- Summarize WHAT WAS DONE, not which files were changed.\n"
+        "- Group related commits into FEATURES, TASKS, or MILESTONES.\n"
+        "- Describe business value, progress, and outcomes.\n"
+        "- Do NOT include raw commit SHAs, branch names, or URLs in the final content.\n"
+        "- If multiple commits fix the same thing, mention it ONCE, not for every commit.\n"
         "\n"
         f"{tone_rule}"
         "\n"
         "Rules (strict):\n"
         "1. Output ONLY valid JSON with this exact structure:\n"
         '   {"title": "Weekly Report Title", "sections": [{"heading": "...", "content": "..."}]}\n'
-        "2. Do NOT invent any repository names, SHAs, URLs, ticket IDs, or people not present in the input.\n"
-        "3. Preserve every factual link and short SHA from the input commits.\n"
-        "4. Group related commits by repository or theme when possible.\n"
+        "2. Do NOT invent any repository names, ticket IDs, or people not present in the input.\n"
+        "3. Do NOT include commit SHAs, URLs, branch names, or file paths in the content.\n"
+        "4. Group related commits by theme or feature when possible.\n"
         "5. Use Chinese language (unless input asks for English). Match the writing style to the tone guidance above.\n"
         "6. If there are no commits in the window, state that clearly.\n"
         "7. The \"content\" of each section should be valid Markdown.\n"
@@ -64,17 +72,43 @@ def _build_user_message(
     elif tone == "formal":
         tone_hint = "Tone: formal and detailed.\n\n"
 
-    commit_text = json.dumps(commits[:500], ensure_ascii=False, indent=2)
-    pr_text = json.dumps(prs[:200], ensure_ascii=False, indent=2) if prs else "[]"
+    # Provide commit info for reference, but emphasize summarization
+    commit_summaries = []
+    for c in commits[:100]:
+        msg = c.get("message", "")
+        repo = c.get("repo", "")
+        author = c.get("author", "")
+        # Clean up merge messages
+        if msg.startswith("Merge"):
+            continue
+        commit_summaries.append(f"- [{repo}] {msg} (by {author})")
+
+    pr_summaries = []
+    for p in prs[:50]:
+        title = p.get("title", "")
+        repo = p.get("repo", "")
+        pr_summaries.append(f"- [{repo}] PR: {title}")
+
+    commits_text = "\n".join(commit_summaries) if commit_summaries else "无提交记录"
+    prs_text = "\n".join(pr_summaries) if pr_summaries else "无 PR 记录"
 
     return (
         f"Profile: {profile_name}\n"
         f"Window: last {window_days} days\n"
         f"Repositories: {', '.join(repos)}\n"
         f"Title hint: {title_hint}\n"
+        f"\n"
         f"{tone_hint}"
-        f"Commits:\n{commit_text}\n"
-        f"\nPull Requests:\n{pr_text}\n"
+        f"=== 原始提交记录（供参考，不要直接复制到周报里） ===\n"
+        f"{commits_text}\n"
+        f"\n"
+        f"=== 合并的 PR（供参考） ===\n"
+        f"{prs_text}\n"
+        f"\n"
+        f"=== 写作要求 ===\n"
+        f"1. 把上面的提交归纳为'本周完成了什么工作'，不要出现 SHA、链接、文件名\n"
+        f"2. 按功能/主题归类，不要把每个提交都列一遍\n"
+        f"3. 描述业务价值和进展，面向领导和同事阅读\n"
     )
 
 
