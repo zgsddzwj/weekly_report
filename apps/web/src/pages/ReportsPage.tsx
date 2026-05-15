@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  ClipboardList, Download, Eye, X, Loader2, AlertCircle
+} from "lucide-react";
 import { api } from "../api";
+import { useToast } from "../components/Toast";
 import type { ReportRun } from "../types";
 
 function StatusBadge({ status }: { status: string }) {
@@ -13,18 +17,23 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function ReportsPage() {
+  const toast = useToast();
   const [err, setErr] = useState<string | null>(null);
   const [runs, setRuns] = useState<ReportRun[]>([]);
-  const [limit, setLimit] = useState(50);
+  const [loading, setLoading] = useState(true);
+  const [limit, setLimit] = useState(20);
   const [detail, setDetail] = useState<ReportRun | null>(null);
 
   const refresh = useCallback(async () => {
     setErr(null);
+    setLoading(true);
     try {
       const r = await api<ReportRun[]>(`/reports?limit=${limit}`);
       setRuns(r);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "加载失败");
+    } finally {
+      setLoading(false);
     }
   }, [limit]);
 
@@ -42,6 +51,7 @@ export default function ReportsPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast.showSuccess("下载成功");
   }
 
   async function loadDetail(id: number) {
@@ -55,64 +65,58 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <h1 style={{ margin: "0 0 1rem" }}>📋 报告历史</h1>
-      {err ? <p className="err">{err}</p> : null}
+      <div className="page-header">
+        <h1>📋 报告历史</h1>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <label style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+            每页
+            <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} style={{ minWidth: "4rem" }}>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            条
+          </label>
+          <button className="btn btn-sm" onClick={() => refresh()}>
+            刷新
+          </button>
+        </div>
+      </div>
+
+      {err ? <div className="alert alert-error"><AlertCircle size={16} /><span>{err}</span></div> : null}
 
       <section className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-          <h2 style={{ margin: 0 }}>运行记录</h2>
-          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-            <label style={{ margin: 0 }}>
-              显示条数
-              <select value={limit} onChange={(e) => setLimit(Number(e.target.value))} style={{ minWidth: "5rem" }}>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={200}>200</option>
-              </select>
-            </label>
-            <button type="button" className="secondary sm" onClick={() => refresh()}>
-              刷新
-            </button>
+        {loading ? (
+          <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)" }}>
+            <Loader2 size={24} className="spin" />
           </div>
-        </div>
-
-        {runs.length === 0 ? (
-          <div className="empty">暂无运行记录</div>
+        ) : runs.length === 0 ? (
+          <div className="empty-state">
+            <ClipboardList size={40} />
+            <h3>暂无运行记录</h3>
+            <p>去概览页生成你的第一份周报吧</p>
+          </div>
         ) : (
           <table className="data-table">
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>档案</th>
-                <th>状态</th>
-                <th>触发</th>
-                <th>时间</th>
-                <th>操作</th>
-              </tr>
+              <tr><th>ID</th><th>档案</th><th>状态</th><th>触发</th><th>时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               {runs.map((r) => (
                 <tr key={r.id}>
                   <td>#{r.id}</td>
                   <td>{r.profile_id}</td>
-                  <td>
-                    <StatusBadge status={r.status} />
-                  </td>
-                  <td>{r.trigger_source}</td>
-                  <td style={{ fontSize: "0.8rem", color: "#64748b" }}>{new Date(r.created_at).toLocaleString()}</td>
+                  <td><StatusBadge status={r.status} /></td>
+                  <td style={{ fontSize: "0.8rem" }}>{r.trigger_source}</td>
+                  <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{new Date(r.created_at).toLocaleString()}</td>
                   <td>
                     <div style={{ display: "flex", gap: "0.35rem" }}>
-                      <button type="button" className="secondary sm" onClick={() => loadDetail(r.id)}>
-                        详情
+                      <button className="btn btn-sm btn-icon" onClick={() => loadDetail(r.id)} title="查看详情">
+                        <Eye size={14} />
                       </button>
                       {r.status === "success" && r.result_markdown ? (
-                        <button
-                          type="button"
-                          className="secondary sm"
-                          onClick={() => downloadMarkdown(r.result_markdown!, `report-${r.id}.md`)}
-                        >
-                          下载
+                        <button className="btn btn-sm btn-icon" onClick={() => downloadMarkdown(r.result_markdown!, `report-${r.id}.md`)} title="下载">
+                          <Download size={14} />
                         </button>
                       ) : null}
                     </div>
@@ -124,36 +128,39 @@ export default function ReportsPage() {
         )}
       </section>
 
-      {detail ? (
-        <section className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-            <h2 style={{ margin: 0 }}>任务 #{detail.id} 详情</h2>
-            <button type="button" className="secondary sm" onClick={() => setDetail(null)}>
-              关闭
-            </button>
-          </div>
-          <p>
-            状态：<StatusBadge status={detail.status} />
-          </p>
-          {detail.error_message ? <p className="err">{detail.error_message}</p> : null}
-          {detail.result_markdown ? (
-            <>
-              <div style={{ marginBottom: "0.5rem" }}>
-                <button
-                  type="button"
-                  className="secondary sm"
-                  onClick={() => downloadMarkdown(detail.result_markdown!, `report-${detail.id}.md`)}
-                >
-                  ⬇️ 下载 .md
-                </button>
+      {detail && (
+        <div className="dialog-overlay" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
+          <div className="dialog">
+            <div className="dialog-header">
+              <h3>任务 #{detail.id} 详情</h3>
+              <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setDetail(null)}><X size={16} /></button>
+            </div>
+            <div className="dialog-body">
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                <span>状态</span>
+                <StatusBadge status={detail.status} />
               </div>
-              <pre className="md">{detail.result_markdown}</pre>
-            </>
-          ) : (
-            <p style={{ color: "#64748b" }}>暂无结果内容</p>
-          )}
-        </section>
-      ) : null}
+              {detail.error_message ? (
+                <div className="alert alert-error" style={{ marginBottom: "0.75rem" }}>
+                  <AlertCircle size={14} />{detail.error_message}
+                </div>
+              ) : null}
+              {detail.result_markdown ? (
+                <>
+                  <div style={{ marginBottom: "0.5rem", display: "flex", gap: "0.5rem" }}>
+                    <button className="btn btn-sm" onClick={() => downloadMarkdown(detail.result_markdown!, `report-${detail.id}.md`)}>
+                      <Download size={14} /> 下载 .md
+                    </button>
+                  </div>
+                  <pre className="md-preview">{detail.result_markdown}</pre>
+                </>
+              ) : (
+                <p style={{ color: "var(--text-muted)" }}>暂无结果内容</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

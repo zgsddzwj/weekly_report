@@ -1,6 +1,11 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import {
+  Link2, FolderOpen, ClipboardList, CheckCircle, AlertCircle,
+  Clock, Zap, Download, Loader2, ChevronRight, X
+} from "lucide-react";
 import { api, sseLines } from "../api";
+import { useToast } from "../components/Toast";
 import type { GitConnection, ReportProfile, ReportRun } from "../types";
 
 function StatusBadge({ status }: { status: string }) {
@@ -14,13 +19,14 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Dashboard() {
+  const toast = useToast();
   const [err, setErr] = useState<string | null>(null);
   const [connections, setConnections] = useState<GitConnection[]>([]);
   const [profiles, setProfiles] = useState<ReportProfile[]>([]);
   const [runs, setRuns] = useState<ReportRun[]>([]);
+  const [loading, setLoading] = useState(true);
   const [genProfileId, setGenProfileId] = useState<number | "">("");
   const [activeRun, setActiveRun] = useState<ReportRun | null>(null);
-
   const [showGuide, setShowGuide] = useState(() => {
     try {
       return localStorage.getItem("wr_guide_closed") !== "1";
@@ -43,6 +49,8 @@ export default function Dashboard() {
       setGenProfileId((prev) => (prev === "" && p.length ? p[0].id : prev));
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : "加载失败");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -67,6 +75,7 @@ export default function Dashboard() {
                   : prev
               );
               void refresh();
+              toast.showSuccess("周报生成成功！");
               break;
             } else if (payload.status === "failed") {
               setActiveRun((prev) =>
@@ -75,6 +84,7 @@ export default function Dashboard() {
                   : prev
               );
               void refresh();
+              toast.showError("周报生成失败");
               break;
             } else {
               setActiveRun((prev) => (prev && prev.id === runId ? { ...prev, status: payload.status } : prev));
@@ -96,10 +106,8 @@ export default function Dashboard() {
       }
     }
     void listen();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeRun, refresh]);
+    return () => { cancelled = true; };
+  }, [activeRun, refresh, toast]);
 
   async function generate(e: FormEvent) {
     e.preventDefault();
@@ -127,6 +135,7 @@ export default function Dashboard() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    toast.showSuccess("下载成功");
   }
 
   const todayRuns = runs.filter((r) => {
@@ -135,180 +144,185 @@ export default function Dashboard() {
     return d.toDateString() === now.toDateString();
   });
 
+  if (loading) {
+    return (
+      <div className="page-content">
+        <div className="page-header"><h1>📊 概览</h1></div>
+        <div className="stat-grid">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="stat-card"><div style={{ height: 60, background: "var(--border)", borderRadius: 6 }} /></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h1 style={{ margin: "0 0 1rem" }}>📊 概览</h1>
-      {err ? <p className="err">{err}</p> : null}
+      <div className="page-header">
+        <h1>📊 概览</h1>
+        <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>
+          {new Date().toLocaleDateString("zh-CN", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        </span>
+      </div>
+
+      {err ? <div className="alert alert-error"><AlertCircle size={16} /><span>{err}</span></div> : null}
 
       {showGuide ? (
-        <section className="card" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h2 style={{ margin: 0, fontSize: "1.1rem" }}>📖 新手指南</h2>
+        <section className="card guide-card">
+          <div className="card-header">
+            <div>
+              <h3>📖 新手指南</h3>
+              <div className="card-subtitle">4 步快速上手 Week Report</div>
+            </div>
             <button
               type="button"
-              className="secondary sm"
+              className="btn btn-ghost btn-icon btn-sm"
               onClick={() => {
                 setShowGuide(false);
-                try {
-                  localStorage.setItem("wr_guide_closed", "1");
-                } catch {
-                  /* ignore */
-                }
+                try { localStorage.setItem("wr_guide_closed", "1"); } catch {}
               }}
             >
-              关闭引导
+              <X size={16} />
             </button>
           </div>
-          <ol style={{ paddingLeft: "1.25rem", margin: "0.75rem 0 0", color: "#334155", lineHeight: 1.7 }}>
-            <li>
-              <strong>添加 Git 连接</strong>：在「
-              <Link to="/connections">Git 连接</Link>」页面填入你的平台 Token。
-            </li>
-            <li>
-              <strong>创建周报档案</strong>：在「<Link to="/profiles">周报档案</Link>」页面选择连接、填写仓库列表（格式{" "}
-              <code>owner/repo</code>）。
-            </li>
-            <li>
-              <strong>一键生成周报</strong>：回到本页选择档案，点击「一键生成」。Worker 自动拉取提交并渲染 Markdown。
-            </li>
-            <li>
-              <strong>查看与扩展</strong>：支持定时任务、Webhook、PR 汇总、自定义 Jinja2 模板等进阶功能。
-            </li>
-          </ol>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "1rem" }}>
+            {[
+              { num: 1, title: "添加 Git 连接", desc: "在连接管理页填入 PAT Token", link: "/connections" },
+              { num: 2, title: "创建周报档案", desc: "选择连接、填写仓库列表", link: "/profiles" },
+              { num: 3, title: "一键生成周报", desc: "Worker 自动拉取并渲染 Markdown", link: "" },
+              { num: 4, title: "查看与扩展", desc: "支持定时任务、Webhook、PR 汇总", link: "" },
+            ].map((s) => (
+              <div key={s.num} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%", background: "var(--primary)", color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 700, flexShrink: 0
+                }}>{s.num}</div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{s.title}</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{s.desc}</div>
+                  {s.link ? <Link to={s.link} className="link-btn">去设置 <ChevronRight size={12} /></Link> : null}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       ) : (
         <div style={{ textAlign: "right", marginBottom: "0.75rem" }}>
-          <button
-            type="button"
-            className="secondary sm"
-            onClick={() => {
-              setShowGuide(true);
-              try {
-                localStorage.removeItem("wr_guide_closed");
-              } catch {
-                /* ignore */
-              }
-            }}
-          >
+          <button className="btn btn-sm" onClick={() => { setShowGuide(true); try { localStorage.removeItem("wr_guide_closed"); } catch {} }}>
             📖 显示新手指南
           </button>
         </div>
       )}
 
-      {/* Stat cards */}
+      {/* Stats */}
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="stat-label">Git 连接</div>
-          <div className="stat-value">{connections.length}</div>
+          <div className="stat-icon blue"><Link2 size={20} /></div>
+          <div>
+            <div className="stat-value">{connections.length}</div>
+            <div className="stat-label">Git 连接</div>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">周报档案</div>
-          <div className="stat-value">{profiles.length}</div>
+          <div className="stat-icon green"><FolderOpen size={20} /></div>
+          <div>
+            <div className="stat-value">{profiles.length}</div>
+            <div className="stat-label">周报档案</div>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">今日运行</div>
-          <div className="stat-value">{todayRuns.length}</div>
+          <div className="stat-icon amber"><Clock size={20} /></div>
+          <div>
+            <div className="stat-value">{todayRuns.length}</div>
+            <div className="stat-label">今日运行</div>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">最近成功</div>
-          <div className="stat-value">
-            {runs.filter((r) => r.status === "success").length}
+          <div className="stat-icon green"><CheckCircle size={20} /></div>
+          <div>
+            <div className="stat-value">{runs.filter((r) => r.status === "success").length}</div>
+            <div className="stat-label">累计成功</div>
           </div>
         </div>
       </div>
 
       {/* Quick generate */}
       <section className="card">
-        <h2>⚡ 快速生成周报</h2>
+        <div className="card-header"><h2><Zap size={16} style={{ verticalAlign: "-2px" }} /> 快速生成周报</h2></div>
         {profiles.length === 0 ? (
-          <div className="empty">
-            <p>
-              还没有周报档案，先去 <Link to="/profiles">创建档案</Link> 吧
-            </p>
+          <div className="empty-state">
+            <FolderOpen size={40} />
+            <h3>还没有周报档案</h3>
+            <p>先去 <Link to="/profiles" className="link-btn">创建档案</Link> 吧</p>
           </div>
         ) : (
-          <form onSubmit={generate} className="row">
-            <label style={{ flex: 1 }}>
-              选择档案
-              <select
-                value={genProfileId}
-                onChange={(e) => setGenProfileId(Number(e.target.value))}
-              >
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    #{p.id} {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit">一键生成</button>
-          </form>
-        )}
-
-        {activeRun ? (
-          <div style={{ marginTop: "1rem" }}>
-            <p>
-              任务 #{activeRun.id} 状态：<StatusBadge status={activeRun.status} />
-            </p>
-            {activeRun.error_message ? <p className="err">{activeRun.error_message}</p> : null}
-            {activeRun.result_markdown ? (
-              <>
-                <div style={{ marginBottom: "0.5rem" }}>
-                  <button
-                    type="button"
-                    className="secondary sm"
-                    onClick={() => downloadMarkdown(activeRun.result_markdown!, `report-${activeRun.id}.md`)}
-                  >
-                    ⬇️ 下载 .md
-                  </button>
+          <>
+            <form onSubmit={generate} className="form-row">
+              <label style={{ flex: 1, minWidth: "16rem" }}>
+                选择档案
+                <select value={genProfileId} onChange={(e) => setGenProfileId(Number(e.target.value))}>
+                  {profiles.map((p) => (
+                    <option key={p.id} value={p.id}>#{p.id} {p.name}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className="btn btn-primary">
+                <Zap size={16} /> 一键生成
+              </button>
+            </form>
+            {activeRun ? (
+              <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px dashed var(--border)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                  <span>任务 #{activeRun.id}</span>
+                  <StatusBadge status={activeRun.status} />
+                  {activeRun.status === "running" ? <Loader2 size={14} className="spin" /> : null}
                 </div>
-                <pre className="md">{activeRun.result_markdown}</pre>
-              </>
+                {activeRun.error_message ? <div className="alert alert-error" style={{ marginBottom: "0.5rem" }}><AlertCircle size={14} />{activeRun.error_message}</div> : null}
+                {activeRun.result_markdown ? (
+                  <>
+                    <div style={{ marginBottom: "0.5rem" }}>
+                      <button className="btn btn-sm" onClick={() => downloadMarkdown(activeRun.result_markdown!, `report-${activeRun.id}.md`)}>
+                        <Download size={14} /> 下载 .md
+                      </button>
+                    </div>
+                    <pre className="md-preview">{activeRun.result_markdown}</pre>
+                  </>
+                ) : null}
+              </div>
             ) : null}
-          </div>
-        ) : null}
+          </>
+        )}
       </section>
 
       {/* Recent runs */}
       <section className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-          <h2 style={{ margin: 0 }}>🕐 最近运行</h2>
-          <Link to="/reports" style={{ fontSize: "0.85rem" }}>
-            查看全部 →
-          </Link>
+        <div className="card-header">
+          <h2><ClipboardList size={16} style={{ verticalAlign: "-2px" }} /> 最近运行</h2>
+          <Link to="/reports" className="link-btn">查看全部 →</Link>
         </div>
         {runs.length === 0 ? (
-          <div className="empty">暂无运行记录</div>
+          <div className="empty-state">
+            <ClipboardList size={40} />
+            <h3>暂无运行记录</h3>
+          </div>
         ) : (
           <table className="data-table">
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>档案</th>
-                <th>状态</th>
-                <th>触发</th>
-                <th>时间</th>
-                <th>操作</th>
-              </tr>
+              <tr><th>ID</th><th>档案</th><th>状态</th><th>触发</th><th>时间</th><th>操作</th></tr>
             </thead>
             <tbody>
               {runs.map((r) => (
                 <tr key={r.id}>
                   <td>#{r.id}</td>
                   <td>{r.profile_id}</td>
-                  <td>
-                    <StatusBadge status={r.status} />
-                  </td>
+                  <td><StatusBadge status={r.status} /></td>
                   <td>{r.trigger_source}</td>
-                  <td style={{ fontSize: "0.8rem", color: "#64748b" }}>{new Date(r.created_at).toLocaleString()}</td>
+                  <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{new Date(r.created_at).toLocaleString()}</td>
                   <td>
                     {r.status === "success" && r.result_markdown ? (
-                      <button
-                        type="button"
-                        className="secondary sm"
-                        onClick={() => downloadMarkdown(r.result_markdown!, `report-${r.id}.md`)}
-                      >
-                        下载
+                      <button className="btn btn-sm" onClick={() => downloadMarkdown(r.result_markdown!, `report-${r.id}.md`)}>
+                        <Download size={14} />
                       </button>
                     ) : null}
                   </td>

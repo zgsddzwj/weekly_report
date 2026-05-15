@@ -1,12 +1,14 @@
 import type { ReactElement } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getToken, setToken } from "../api";
+import { LayoutDashboard, Link2, FolderOpen, ClipboardList, LogOut } from "lucide-react";
+import { setToken } from "../api";
 
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+function NavItem({ to, icon: Icon, children }: { to: string; icon: React.ElementType; children: React.ReactNode }) {
   const loc = useLocation();
   const active = loc.pathname === to || (to !== "/" && loc.pathname.startsWith(to));
   return (
     <Link to={to} className={active ? "active" : ""}>
+      <Icon size={18} strokeWidth={2} />
       {children}
     </Link>
   );
@@ -17,38 +19,36 @@ export default function Layout({ children }: { children: ReactElement }) {
   if (loc.pathname === "/login") return children;
 
   return (
-    <div className="layout">
+    <div className="app-layout">
       <aside className="sidebar">
-        <div className="sidebar-brand">Week Report</div>
+        <div className="sidebar-brand">
+          <div className="brand-icon">
+            <ClipboardList size={16} />
+          </div>
+          Week Report
+        </div>
         <nav className="sidebar-nav">
-          <NavLink to="/">📊 概览</NavLink>
-          <NavLink to="/connections">🔗 Git 连接</NavLink>
-          <NavLink to="/profiles">📁 周报档案</NavLink>
-          <NavLink to="/reports">📋 报告历史</NavLink>
+          <NavItem to="/" icon={LayoutDashboard}>概览</NavItem>
+          <NavItem to="/connections" icon={Link2}>Git 连接</NavItem>
+          <NavItem to="/profiles" icon={FolderOpen}>周报档案</NavItem>
+          <NavItem to="/reports" icon={ClipboardList}>报告历史</NavItem>
         </nav>
         <div className="sidebar-footer">
           <button
-            className="secondary"
-            style={{ width: "100%", justifyContent: "center" }}
+            className="btn btn-ghost"
+            style={{ width: "100%", justifyContent: "flex-start" }}
             onClick={() => {
               setToken(null);
               window.location.href = "/login";
             }}
           >
-            🚪 退出登录
+            <LogOut size={16} />
+            退出登录
           </button>
         </div>
       </aside>
       <div className="main">
-        <header className="topbar">
-          <div style={{ fontSize: "0.9rem", color: "#64748b" }}>
-            {getToken() ? "已登录" : "未登录"}
-          </div>
-          <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
-            {new Date().toLocaleDateString()}
-          </div>
-        </header>
-        <main className="content">{children}</main>
+        <main className="page-content">{children}</main>
       </div>
     </div>
   );

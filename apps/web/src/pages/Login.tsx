@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { Mail, Lock, Loader2 } from "lucide-react";
 import { api, setToken } from "../api";
 
 export default function Login() {
@@ -14,9 +15,7 @@ export default function Login() {
   useEffect(() => {
     fetch("/api/v1/health/ready")
       .then((r) => r.json())
-      .then((d) => {
-        setOidcAvailable(Boolean(d?.features?.allow_public_oauth));
-      })
+      .then((d) => setOidcAvailable(Boolean(d?.features?.allow_public_oauth)))
       .catch(() => {});
   }, []);
 
@@ -55,60 +54,100 @@ export default function Login() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: "4rem auto", padding: "0 1rem" }}>
-      <h1>Week Report</h1>
-      <p style={{ color: "#64748b" }}>登录后配置 Git 连接与周报档案。</p>
-      <div className="card">
-        <div className="row" style={{ marginBottom: "0.75rem" }}>
+    <div className="login-page">
+      <div className="login-card">
+        <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              background: "var(--primary)",
+              color: "#fff",
+              borderRadius: 12,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "0.75rem",
+            }}
+          >
+            <Mail size={24} />
+          </div>
+          <h1>Week Report</h1>
+          <p>私有化周报生成工具</p>
+        </div>
+
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
           <button
             type="button"
-            className={mode === "login" ? "" : "secondary"}
-            onClick={() => setMode("login")}
+            className={mode === "login" ? "btn btn-primary" : "btn"}
+            style={{ flex: 1, justifyContent: "center" }}
+            onClick={() => { setMode("login"); setErr(null); }}
           >
             登录
           </button>
           <button
             type="button"
-            className={mode === "register" ? "" : "secondary"}
-            onClick={() => setMode("register")}
+            className={mode === "register" ? "btn btn-primary" : "btn"}
+            style={{ flex: 1, justifyContent: "center" }}
+            onClick={() => { setMode("register"); setErr(null); }}
           >
             注册
           </button>
         </div>
+
+        {err ? (
+          <div className="alert alert-error" style={{ marginBottom: "1rem" }}>
+            <span>{err}</span>
+          </div>
+        ) : null}
+
         <form onSubmit={onSubmit}>
-          <label style={{ marginBottom: "0.75rem" }}>
-            邮箱
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-          </label>
-          <label style={{ marginBottom: "0.75rem" }}>
-            密码（至少 8 位）
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              minLength={8}
-              required
-            />
-          </label>
-          {err ? <p className="err">{err}</p> : null}
-          <button type="submit" disabled={loading}>
+          <div className="form-group" style={{ marginBottom: "0.75rem" }}>
+            <label>邮箱</label>
+            <div style={{ position: "relative" }}>
+              <Mail size={16} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                required
+                style={{ paddingLeft: 34 }}
+              />
+            </div>
+          </div>
+          <div className="form-group" style={{ marginBottom: "1.25rem" }}>
+            <label>密码（至少 8 位）</label>
+            <div style={{ position: "relative" }}>
+              <Lock size={16} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                minLength={8}
+                required
+                style={{ paddingLeft: 34 }}
+              />
+            </div>
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: "100%", justifyContent: "center" }}>
+            {loading ? <Loader2 size={16} className="spin" /> : null}
             {loading ? "提交中…" : mode === "register" ? "注册并登录" : "登录"}
           </button>
         </form>
+
         {oidcAvailable ? (
           <>
-            <div style={{ textAlign: "center", margin: "0.75rem 0", color: "#94a3b8" }}>— 或 —</div>
-            <a href="/api/v1/auth/oidc/login" style={{ display: "block", textAlign: "center" }}>
-              <button type="button" className="secondary" style={{ width: "100%" }}>
+            <div style={{ textAlign: "center", margin: "1rem 0", color: "var(--text-muted)", fontSize: "0.8rem" }}>
+              — 或 —
+            </div>
+            <a href="/api/v1/auth/oidc/login" style={{ display: "block" }}>
+              <button type="button" className="btn" style={{ width: "100%", justifyContent: "center" }}>
                 使用 OIDC 登录
               </button>
             </a>
           </>
         ) : null}
       </div>
-      <p style={{ marginTop: "1.5rem" }}>
-        <Link to="/">返回首页</Link>（未登录会回到本页）
-      </p>
     </div>
   );
 }
