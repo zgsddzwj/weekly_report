@@ -277,54 +277,83 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <form onSubmit={generate} className="form-row">
-              <label style={{ flex: 1, minWidth: "16rem" }}>
-                <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4, display: "block" }}>选择档案</span>
-                <select value={genProfileId} onChange={(e) => setGenProfileId(Number(e.target.value))} style={{ width: "100%" }}>
-                  {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      #{p.id} {p.name} {p.llm_generate ? "🤖 AI 智能" : "📋 模板"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" className="btn btn-primary" style={{ padding: "0.6rem 1.5rem" }}>
-                <Sparkles size={16} /> 一键生成
-              </button>
-            </form>
-
-            {genProfileId !== "" && (
-              <div style={{ marginTop: "0.75rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                  当前模式：
-                  {profiles.find((p) => p.id === genProfileId)?.llm_generate ? (
-                    <span style={{ color: "var(--accent)", fontWeight: 600 }}>🤖 AI 智能生成 — 大模型直接总结</span>
-                  ) : (
-                    <span style={{ fontWeight: 600 }}>📋 模板生成 — Jinja2 模板填充</span>
-                  )}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={async () => {
-                    const p = profiles.find((x) => x.id === genProfileId);
-                    if (!p) return;
-                    try {
-                      await api<ReportProfile>(`/report-profiles/${p.id}`, {
-                        method: "PATCH",
-                        body: JSON.stringify({ llm_generate: !p.llm_generate }),
-                      });
-                      toast.showSuccess(`已切换到 ${!p.llm_generate ? "🤖 AI 智能生成" : "📋 模板生成"}`);
-                      await refresh();
-                    } catch (ex) {
-                      toast.showError(ex instanceof Error ? ex.message : "切换失败");
-                    }
-                  }}
-                >
-                  切换为 {profiles.find((p) => p.id === genProfileId)?.llm_generate ? "📋 模板" : "🤖 AI"}
-                </button>
+            <div style={{ marginBottom: "1rem" }}>
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "0.75rem", display: "block" }}>
+                选择档案
+              </span>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
+                {profiles.map((p) => {
+                  const isActive = genProfileId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setGenProfileId(p.id)}
+                      className="profile-card"
+                      style={{
+                        border: isActive ? "2px solid var(--primary)" : "1.5px solid var(--border)",
+                        background: isActive ? "var(--primary-light)" : "var(--surface)",
+                        boxShadow: isActive ? "0 4px 12px rgba(79,70,229,0.15)" : "var(--shadow-sm)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                        <span style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text)" }}>{p.name}</span>
+                        {isActive && <CheckCircle size={16} style={{ color: "var(--primary)" }} />}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        {p.llm_generate ? (
+                          <span className="badge badge-llm" style={{ fontSize: "0.7rem" }}>🤖 AI</span>
+                        ) : (
+                          <span className="badge" style={{ background: "var(--bg)", color: "var(--text-muted)", fontSize: "0.7rem" }}>📋 模板</span>
+                        )}
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{p.window_days}天</span>
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.35rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {p.repo_full_names}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            )}
+
+              {genProfileId !== "" && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                    当前模式：
+                    {profiles.find((p) => p.id === genProfileId)?.llm_generate ? (
+                      <span style={{ color: "var(--accent)", fontWeight: 600 }}>🤖 AI 智能生成</span>
+                    ) : (
+                      <span style={{ fontWeight: 600 }}>📋 模板生成</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={async () => {
+                      const p = profiles.find((x) => x.id === genProfileId);
+                      if (!p) return;
+                      try {
+                        await api<ReportProfile>(`/report-profiles/${p.id}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ llm_generate: !p.llm_generate }),
+                        });
+                        toast.showSuccess(`已切换到 ${!p.llm_generate ? "🤖 AI 智能生成" : "📋 模板生成"}`);
+                        await refresh();
+                      } catch (ex) {
+                        toast.showError(ex instanceof Error ? ex.message : "切换失败");
+                      }
+                    }}
+                  >
+                    切换为 {profiles.find((p) => p.id === genProfileId)?.llm_generate ? "📋 模板" : "🤖 AI"}
+                  </button>
+                  <form onSubmit={generate} style={{ marginLeft: "auto" }}>
+                    <button type="submit" className="btn btn-primary" style={{ padding: "0.6rem 1.5rem" }}>
+                      <Sparkles size={16} /> 一键生成
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
 
             {activeRun ? (
               <div style={{ marginTop: "1.25rem", paddingTop: "1.25rem", borderTop: "1px dashed var(--border)" }}>

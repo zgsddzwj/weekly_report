@@ -857,3 +857,22 @@ html, body, #root {
   background: var(--primary-light);
   transform: translateX(4px);
 }
+
+/* Profile card selector */
+.profile-card {
+  text-align: left;
+  padding: 1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.profile-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.profile-card:active {
+  transform: translateY(0);
+}
