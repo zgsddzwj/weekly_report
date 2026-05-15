@@ -29,6 +29,14 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (orgId) headers.set("X-Organization-Id", orgId);
   const res = await fetch(`${prefix}${path}`, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      setToken(null);
+      setOrgId(null);
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+      throw new Error("登录已过期，请重新登录");
+    }
     let detail = res.statusText;
     try {
       const j = (await res.json()) as { detail?: unknown };
