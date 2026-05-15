@@ -106,6 +106,7 @@ class ReportProfile(Base):
     hook_public_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     include_prs: Mapped[bool] = mapped_column(Boolean, default=False)
     diff_analysis_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    llm_generate: Mapped[bool] = mapped_column(Boolean, default=False)
 
     user: Mapped["User"] = relationship(back_populates="report_profiles")
     git_connection: Mapped["GitConnection"] = relationship()

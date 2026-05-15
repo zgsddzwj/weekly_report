@@ -28,6 +28,7 @@ export default function ProfilesPage() {
   const [scheduleCron, setScheduleCron] = useState("0 9 * * 1");
   const [scheduleTimezone, setScheduleTimezone] = useState("Asia/Shanghai");
   const [customTemplate, setCustomTemplate] = useState("");
+  const [llmGenerate, setLlmGenerate] = useState(false);
 
   const refresh = useCallback(async () => {
     setErr(null);
@@ -69,6 +70,7 @@ export default function ProfilesPage() {
           schedule_enabled: scheduleEnabled,
           schedule_timezone: scheduleTimezone,
           include_prs: includePrs,
+          llm_generate: llmGenerate,
         }),
       });
       setRepos("");
@@ -185,6 +187,13 @@ export default function ProfilesPage() {
                         </div>
                       </>
                     )}
+                    <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                      <label>生成模式</label>
+                      <select value={llmGenerate ? "llm" : "template"} onChange={(e) => setLlmGenerate(e.target.value === "llm")}>
+                        <option value="template">模板生成（传统模式）</option>
+                        <option value="llm">AI 智能生成（LLM 总结）</option>
+                      </select>
+                    </div>
                     <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                       <label>自定义 Markdown 模板（留空使用内置；Jinja2 语法）</label>
                       <textarea rows={4} value={customTemplate} onChange={(e) => setCustomTemplate(e.target.value)} placeholder="可选：覆盖内置模板" />

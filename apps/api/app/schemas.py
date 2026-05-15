@@ -58,6 +58,7 @@ class ReportProfileCreate(BaseModel):
     schedule_timezone: str = "UTC"
     include_prs: bool = False
     diff_analysis_consent: bool = False
+    llm_generate: bool = False
 
 
 class ReportProfileOut(BaseModel):
@@ -76,6 +77,7 @@ class ReportProfileOut(BaseModel):
     hook_public_token: str
     include_prs: bool
     diff_analysis_consent: bool
+    llm_generate: bool
 
     model_config = {"from_attributes": True}
 
@@ -92,6 +94,7 @@ class ReportProfileUpdate(BaseModel):
     schedule_timezone: str | None = None
     include_prs: bool | None = None
     diff_analysis_consent: bool | None = None
+    llm_generate: bool | None = None
 
 
 class TemplatePresetOut(BaseModel):

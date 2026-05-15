@@ -10,6 +10,7 @@ from app.plugins.pm import get_active_pm_plugin
 from app.services.audit import record_audit_event
 from app.services.git_client import fetch_commits_for_window, fetch_merged_prs_for_window, parse_repo_list
 from app.services.integrations_notify import notify_from_style
+from app.services.llm_generate import generate_report_with_llm
 from app.services.llm_polish import polish_markdown_with_llm
 from app.services.object_storage import upload_report_markdown
 from app.services.report_builder import render_report_markdown
@@ -71,14 +72,41 @@ def generate_report(run_id: int) -> None:
         style = dict(profile.style or {})
         style["_pm_plugin"] = extra
 
-        md = render_report_markdown(
-            commits,
-            profile.name,
-            profile.window_days,
-            repos,
-            style,
-            prs=prs,
-        )
+        # Generation mode: LLM smart generate vs template render
+        settings = get_settings()
+        use_llm = profile.llm_generate and settings.feature_llm and settings.llm_base_url
+
+        if use_llm:
+            try:
+                md = generate_report_with_llm(
+                    commits=commits,
+                    prs=prs,
+                    profile_name=profile.name,
+                    window_days=profile.window_days,
+                    repos=repos,
+                    style=style,
+                )
+                log.info("report.llm_generate_success", run_id=run.id)
+            except Exception as llm_exc:
+                log.warning("report.llm_generate_failed_falling_back", run_id=run.id, error=str(llm_exc))
+                md = render_report_markdown(
+                    commits,
+                    profile.name,
+                    profile.window_days,
+                    repos,
+                    style,
+                    prs=prs,
+                )
+        else:
+            md = render_report_markdown(
+                commits,
+                profile.name,
+                profile.window_days,
+                repos,
+                style,
+                prs=prs,
+            )
+
         md = polish_markdown_with_llm(base_markdown=md, commits=commits)
 
         settings = get_settings()

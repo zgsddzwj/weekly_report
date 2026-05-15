@@ -263,7 +263,7 @@ export default function Dashboard() {
                 选择档案
                 <select value={genProfileId} onChange={(e) => setGenProfileId(Number(e.target.value))}>
                   {profiles.map((p) => (
-                    <option key={p.id} value={p.id}>#{p.id} {p.name}</option>
+                    <option key={p.id} value={p.id}>#{p.id} {p.name} {p.llm_generate ? "🤖 AI" : "📋 模板"}</option>
                   ))}
                 </select>
               </label>
@@ -271,6 +271,15 @@ export default function Dashboard() {
                 <Zap size={16} /> 一键生成
               </button>
             </form>
+            {genProfileId !== "" && (
+              <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                当前模式：{profiles.find((p) => p.id === genProfileId)?.llm_generate ? (
+                  <span style={{ color: "var(--primary)" }}>🤖 AI 智能生成 — 大模型直接总结提交记录</span>
+                ) : (
+                  <span>📋 模板生成 — Jinja2 模板填充</span>
+                )}
+              </div>
+            )}
             {activeRun ? (
               <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px dashed var(--border)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>

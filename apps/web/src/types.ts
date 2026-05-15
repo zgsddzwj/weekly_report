@@ -20,6 +20,7 @@ export type ReportProfile = {
   schedule_timezone: string;
   include_prs: boolean;
   hook_public_token: string;
+  llm_generate: boolean;
 };
 
 export type ReportRun = {

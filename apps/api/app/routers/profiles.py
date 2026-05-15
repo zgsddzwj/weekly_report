@@ -118,6 +118,7 @@ def create_profile(
         webhook_hmac_secret_encrypted=wh,
         include_prs=payload.include_prs,
         diff_analysis_consent=payload.diff_analysis_consent,
+        llm_generate=payload.llm_generate,
     )
     db.add(row)
     db.commit()
@@ -187,6 +188,8 @@ def patch_profile(
         row.include_prs = data["include_prs"]
     if "diff_analysis_consent" in data and data["diff_analysis_consent"] is not None:
         row.diff_analysis_consent = data["diff_analysis_consent"]
+    if "llm_generate" in data and data["llm_generate"] is not None:
+        row.llm_generate = data["llm_generate"]
 
     db.commit()
     db.refresh(row)

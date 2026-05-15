@@ -33,6 +33,7 @@ export default function ProfileEditPage() {
   const [scheduleCron, setScheduleCron] = useState("0 9 * * 1");
   const [scheduleTimezone, setScheduleTimezone] = useState("Asia/Shanghai");
   const [customTemplate, setCustomTemplate] = useState("");
+  const [llmGenerate, setLlmGenerate] = useState(false);
   const [hookUrl, setHookUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -58,6 +59,7 @@ export default function ProfileEditPage() {
         const pid = typeof st.template_preset === "string" ? st.template_preset : "default";
         setTemplatePreset(["default", "compact", "formal_zh"].includes(pid) ? pid : "default");
         setIncludePrs(prof.include_prs);
+        setLlmGenerate(prof.llm_generate);
         setScheduleEnabled(prof.schedule_enabled);
         setScheduleCron(prof.schedule_cron || "0 9 * * 1");
         setScheduleTimezone(prof.schedule_timezone || "UTC");
@@ -90,6 +92,7 @@ export default function ProfileEditPage() {
           schedule_enabled: scheduleEnabled,
           schedule_timezone: scheduleTimezone,
           include_prs: includePrs,
+          llm_generate: llmGenerate,
         }),
       });
       toast.showSuccess("保存成功");
@@ -188,6 +191,13 @@ export default function ProfileEditPage() {
                   </div>
                 </>
               )}
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label>生成模式</label>
+                <select value={llmGenerate ? "llm" : "template"} onChange={(e) => setLlmGenerate(e.target.value === "llm")}>
+                  <option value="template">模板生成（传统模式）</option>
+                  <option value="llm">AI 智能生成（LLM 总结）</option>
+                </select>
+              </div>
               <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                 <label>自定义 Markdown 模板（留空使用内置；Jinja2 语法）</label>
                 <textarea rows={6} value={customTemplate} onChange={(e) => setCustomTemplate(e.target.value)} placeholder="可选：覆盖内置模板" />
