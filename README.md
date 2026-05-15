@@ -1,4 +1,4 @@
-# Week Report — 私有化 Git 周报生成器
+# Weekly Report — 私有化 Git 周报生成器
 
 从代码提交一键生成结构化 Markdown 周报。支持 **模板生成** 与 **AI 智能生成** 两种模式，全程私有化部署，Git PAT 加密存储，数据不出域。
 
@@ -111,15 +111,22 @@ uv run python -m app.cli reports
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `ENCRYPTION_KEY` | Fernet 密钥，用于加密 Git PAT。生产环境必须更换 | 示例密钥（**生产必换**） |
+| `ENCRYPTION_KEY` | Fernet 密钥，用于加密 Git PAT。**生产环境必须更换** | 示例密钥 |
 | `SECRET_KEY` | FastAPI 签名密钥 | `change-me...` |
 | `DATABASE_URL` | PostgreSQL 连接串 | Compose 内自动配置 |
 | `REDIS_URL` | Redis 连接串 | Compose 内自动配置 |
 | `CORS_ORIGINS` | 前端地址，逗号分隔 | `http://localhost:8080,...` |
 | `FEATURE_LLM` | 开启 AI 智能生成模式 | `false` |
 | `LLM_BASE_URL` | LLM OpenAI-compatible API 地址 | — |
-| `LLM_API_KEY` | LLM API 密钥 | — |
+| `LLM_API_KEY` | LLM API 密钥（内网无鉴权可留空） | — |
 | `LLM_MODEL` | 模型名称 | `gpt-4o-mini` |
+| `LLM_TIMEOUT_SECONDS` | LLM 请求超时（秒） | `120` |
+| `S3_ENDPOINT_URL` | S3-compatible 对象存储地址（MinIO/AWS/OSS） | — |
+| `S3_BUCKET` | 对象存储 Bucket | — |
+| `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | 对象存储密钥 | — |
+| `OIDC_ISSUER` / `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | OIDC 单点登录配置 | — |
+| `PUBLIC_APP_URL` | 前端公开地址（用于 OIDC 回调链接） | `http://localhost:8080` |
+| `API_PUBLIC_URL` | API 公开地址（用于 OIDC redirect_uri） | `http://localhost:8000` |
 | `ALLOW_PUBLIC_OAUTH` | 允许公开注册（本地账号） | `true` |
 | `FEATURE_EXTERNAL_TELEMETRY` | 外部遥测（默认关闭） | `false` |
 
