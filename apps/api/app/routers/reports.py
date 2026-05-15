@@ -128,24 +128,17 @@ async def report_events(
             if not row:
                 yield "event: error\ndata: not found\n\n"
                 return
-            payload = {"status": row.status, "id": row.id}
+            payload: dict[str, Any] = {"status": row.status, "id": row.id}
+            if row.status == "success":
+                payload["result_markdown"] = _materialize_markdown(row)
+            elif row.status == "failed":
+                payload["error_message"] = row.error_message
             blob = json.dumps(payload, ensure_ascii=False)
             if blob != last:
                 yield f"data: {blob}\n\n"
                 last = blob
             if row.status in ("success", "failed"):
-                if row.status == "success":
-                    md = _materialize_markdown(row)
-                    done = json.dumps(
-                        {"status": "success", "result_markdown": md},
-                        ensure_ascii=False,
-                    )
-                else:
-                    done = json.dumps(
-                        {"status": "failed", "error_message": row.error_message},
-                        ensure_ascii=False,
-                    )
-                yield f"event: complete\ndata: {done}\n\n"
+                yield f"event: complete\ndata: {blob}\n\n"
                 return
             await asyncio.sleep(1)
 

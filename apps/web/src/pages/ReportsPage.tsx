@@ -105,7 +105,12 @@ export default function ReportsPage() {
               {runs.map((r) => (
                 <tr key={r.id}>
                   <td>#{r.id}</td>
-                  <td>{r.profile_id}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                      {r.profile_id}
+                      {r.profile_snapshot?.llm_generate ? <span title="AI 智能生成">🤖</span> : <span title="模板生成">📋</span>}
+                    </div>
+                  </td>
                   <td><StatusBadge status={r.status} /></td>
                   <td style={{ fontSize: "0.8rem" }}>{r.trigger_source}</td>
                   <td style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>{new Date(r.created_at).toLocaleString()}</td>
@@ -143,6 +148,15 @@ export default function ReportsPage() {
               {detail.error_message ? (
                 <div className="alert alert-error" style={{ marginBottom: "0.75rem" }}>
                   <AlertCircle size={14} />{detail.error_message}
+                </div>
+              ) : null}
+              {detail.profile_snapshot ? (
+                <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.75rem" }}>
+                  生成模式：{detail.profile_snapshot.llm_generate ? (
+                    <span style={{ color: "var(--primary)" }}>🤖 AI 智能生成</span>
+                  ) : (
+                    <span>📋 模板生成</span>
+                  )}
                 </div>
               ) : null}
               {detail.result_markdown ? (

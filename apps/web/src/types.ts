@@ -32,6 +32,7 @@ export type ReportRun = {
   created_at: string;
   finished_at: string | null;
   trigger_source: string;
+  profile_snapshot?: Record<string, unknown>;
 };
 
 export type TemplatePreset = {
