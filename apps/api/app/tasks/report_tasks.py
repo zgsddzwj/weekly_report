@@ -87,6 +87,7 @@ def generate_report(run_id: int) -> None:
                     style=style,
                 )
                 log.info("report.llm_generate_success run_id=%s", run.id)
+                # LLM smart generate already produces high-quality output; skip polish
             except Exception as llm_exc:
                 log.warning("report.llm_generate_failed_falling_back run_id=%s error=%s", run.id, llm_exc)
                 md = render_report_markdown(
@@ -97,6 +98,7 @@ def generate_report(run_id: int) -> None:
                     style,
                     prs=prs,
                 )
+                md = polish_markdown_with_llm(base_markdown=md, commits=commits)
         else:
             md = render_report_markdown(
                 commits,
@@ -106,8 +108,7 @@ def generate_report(run_id: int) -> None:
                 style,
                 prs=prs,
             )
-
-        md = polish_markdown_with_llm(base_markdown=md, commits=commits)
+            md = polish_markdown_with_llm(base_markdown=md, commits=commits)
 
         settings = get_settings()
         storage = "inline"
